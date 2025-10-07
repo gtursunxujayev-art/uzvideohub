@@ -68,11 +68,15 @@ export default function VideoPage({ params }: { params: { id: string } }) {
               Purchase to watch
             </div>
           )}
-        </div>
-        <h1 style={{ fontWeight: 800, fontSize: 24, marginTop: 12 }}>{video.title}</h1>
-        <p style={{ opacity: 0.8, marginTop: 8 }}>{video.description}</p>
-      </div>
-
+        // app/video/[id]/page.tsx  (only the details block updated)
+{/* ...above code unchanged... */}
+<h1 style={{ fontWeight: 800, fontSize: 24, marginTop: 12 }}>{video.title}</h1>
+<p style={{ opacity: 0.8, marginTop: 8 }}>{video.description}</p>
+<div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
+  {(video as any).category ? `Category: ${(video as any).category}` : ''}
+  {(video as any).tags?.length ? `  ·  Tags: ${(video as any).tags.join(', ')}` : ''}
+</div>
+{/* ...rest unchanged... */}
       <aside style={{ background: 'rgba(255,255,255,0.06)', padding: 16, borderRadius: 12, height: 'fit-content' }}>
         {me?.user ? (
           <>
