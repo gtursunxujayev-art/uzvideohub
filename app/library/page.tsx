@@ -17,13 +17,13 @@ export default function LibraryPage() {
     })()
   }, [])
 
-  if (loading) return <div>Loading…</div>
+  if (loading) return <div>Yuklanmoqda…</div>
 
   return (
     <div>
-      <h1 style={{ fontWeight: 800, fontSize: 24, marginBottom: 12 }}>My Library</h1>
+      <h1 style={{ fontWeight: 800, fontSize: 24, marginBottom: 12 }}>Mening kutubxonam</h1>
       {videos.length === 0 ? (
-        <div style={{ opacity: 0.75 }}>No purchased videos yet.</div>
+        <div style={{ opacity: 0.75 }}>Hali xarid qilingan video yo‘q.</div>
       ) : (
         <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
           {videos.map(v => (
