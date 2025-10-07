@@ -1,4 +1,4 @@
-// PostgreSQL (Neon)
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,19 +9,17 @@ datasource db {
 }
 
 model User {
-  id          Int               @id @default(autoincrement())
-  telegramId  String            @unique
-  username    String?
-  name        String?
-  coins       Int               @default(0)
-  isAdmin     Boolean           @default(false)
-  createdAt   DateTime          @default(now())
+  id            Int               @id @default(autoincrement())
+  telegramId    String            @unique
+  username      String?
+  name          String?
+  coins         Int               @default(0)
+  isAdmin       Boolean           @default(false)
+  createdAt     DateTime          @default(now())
 
-  purchases   Purchase[]
-
-  // Relations to CoinTransaction
-  coinTxns        CoinTransaction[] @relation("UserCoinTxns")   // transactions where this user is the recipient
-  adminCoinTxns   CoinTransaction[] @relation("AdminCoinTxns")  // transactions performed by this user as admin
+  purchases     Purchase[]
+  coinTxns      CoinTransaction[] @relation("UserCoinTxns")
+  adminCoinTxns CoinTransaction[] @relation("AdminCoinTxns")
 }
 
 model Video {
@@ -60,10 +58,7 @@ model CoinTransaction {
   reason    String?
   createdAt DateTime @default(now())
 
-  // Recipient user (required)
   user   User  @relation("UserCoinTxns",  fields: [userId],  references: [id])
-
-  // Admin who performed the change (optional)
   admin  User? @relation("AdminCoinTxns", fields: [adminId], references: [id])
 
   @@index([userId, createdAt])
