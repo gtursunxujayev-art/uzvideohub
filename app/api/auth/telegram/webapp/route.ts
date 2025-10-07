@@ -1,4 +1,6 @@
 // app/api/auth/telegram/webapp/route.ts
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/src/lib/db'
 import { signSession } from '@/src/lib/jwt'
@@ -13,7 +15,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: 'Auth failed: bad signature' }, { status: 401 })
   }
 
-  // initData contains "user" field with Telegram user object
   const tgUser =
     (verified.data?.user as any) ||
     (verified.data?.['user'] ? JSON.parse(String(verified.data?.['user'])) : null)
@@ -29,8 +30,6 @@ export async function POST(req: Request) {
   const adminIds = (process.env.ADMIN_TELEGRAM_IDS || '')
     .split(',')
     .map((x) => x.trim())
-    .filter(Boolean)
-
   const isAdmin = adminIds.includes(telegramId)
 
   let user = await prisma.user.findUnique({ where: { telegramId } })
@@ -44,7 +43,6 @@ export async function POST(req: Request) {
 
   const token = signSession({ userId: user.id, isAdmin: user.isAdmin })
   const res = NextResponse.json({ ok: true })
-
   res.cookies.set(COOKIE, token, {
     httpOnly: true,
     secure: true,
@@ -52,6 +50,5 @@ export async function POST(req: Request) {
     path: '/',
     maxAge: 60 * 60 * 24 * 30,
   })
-
   return res
 }
