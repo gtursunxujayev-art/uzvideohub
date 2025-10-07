@@ -5,12 +5,12 @@ import type { ReactNode } from 'react'
 
 export const metadata = {
   title: 'uzvideohub',
-  description: 'Video content hub',
+  description: 'Video kontent markazi',
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="uz">
       <body>
         <header
           style={{
@@ -36,11 +36,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               uzvideohub
             </Link>
             <nav style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
-              <Link href="/">Home</Link>
-              <Link href="/library">Library</Link>
+              <Link href="/">Bosh sahifa</Link>
+              <Link href="/library">Kutubxona</Link>
               <Link href="/admin">Admin</Link>
               <Link href="/tg">Telegram</Link>
-              <Link href="/login">Login</Link>
+              <Link href="/profile">Profil</Link>
             </nav>
           </div>
         </header>
