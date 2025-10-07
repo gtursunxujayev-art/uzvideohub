@@ -2,49 +2,47 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/src/lib/db'
 import { verifySession } from '@/src/lib/jwt'
-
 const COOKIE = process.env.SESSION_COOKIE || 'uzvideohub_session'
 
-function isAdmin(token?: string) {
-  const s = verifySession<{ isAdmin: boolean }>(token || '')
-  return !!s?.isAdmin
-}
-
+// PATCH: update video (admin)
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   // @ts-ignore
   const token = req.cookies?.get?.(COOKIE)?.value || ''
-  if (!isAdmin(token)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const s = verifySession<{ isAdmin?: boolean }>(token)
+  if (!s?.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const id = Number(params.id)
   const body = await req.json()
+  const data: any = {}
 
-  const updated = await prisma.video.update({
-    where: { id },
-    data: {
-      title: body.title ?? undefined,
-      description: body.description ?? undefined,
-      url: body.url ?? undefined,
-      thumbUrl: body.thumbUrl ?? undefined,
-      category: body.category ?? undefined,
-      tags: Array.isArray(body.tags)
-        ? body.tags
-        : typeof body.tags === 'string'
-        ? body.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
-        : undefined,
-      isFree: typeof body.isFree === 'boolean' ? body.isFree : undefined,
-      price: typeof body.price === 'number' ? body.price : undefined,
-    },
-  })
+  if ('title' in body) data.title = String(body.title || '')
+  if ('description' in body) data.description = String(body.description || '')
+  if ('url' in body) data.url = String(body.url || '')
+  if ('thumbUrl' in body) data.thumbUrl = body.thumbUrl ? String(body.thumbUrl) : null
+  if ('category' in body) data.category = body.category ? String(body.category) : null
+  if ('isFree' in body) data.isFree = Boolean(body.isFree)
+  if ('price' in body) data.price = Number(body.price) || 0
+  if ('tags' in body) {
+    data.tags = Array.isArray(body.tags)
+      ? body.tags
+      : (typeof body.tags === 'string'
+          ? body.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+          : [])
+  }
 
-  return NextResponse.json(updated)
+  await prisma.video.update({ where: { id }, data })
+  return NextResponse.json({ ok: true })
 }
 
+// DELETE: remove video (admin)
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   // @ts-ignore
   const token = req.cookies?.get?.(COOKIE)?.value || ''
-  if (!isAdmin(token)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const s = verifySession<{ isAdmin?: boolean }>(token)
+  if (!s?.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const id = Number(params.id)
+  await prisma.purchase.deleteMany({ where: { videoId: id } })
   await prisma.video.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }
