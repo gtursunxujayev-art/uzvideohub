@@ -14,7 +14,6 @@ type Video = {
   category?: string | null
   tags?: string[]
 }
-
 type Me = { user: { coins: number } | null }
 
 export default function VideoPage({ params }: { params: { id: string } }) {
@@ -26,21 +25,10 @@ export default function VideoPage({ params }: { params: { id: string } }) {
   const [error, setError] = useState<string>('')
 
   async function refreshMe() {
-    try {
-      const j = await fetch('/api/me').then((r) => r.json())
-      setMe(j)
-    } catch (e: any) {
-      // ignore
-    }
+    try { const j = await fetch('/api/me').then((r) => r.json()); setMe(j) } catch {}
   }
-
   async function checkOwned(videoId: number) {
-    try {
-      const j = await fetch(`/api/purchase/check?videoId=${videoId}`).then((r) => r.json())
-      return !!j?.owned
-    } catch {
-      return false
-    }
+    try { const j = await fetch(`/api/purchase/check?videoId=${videoId}`).then((r) => r.json()); return !!j?.owned } catch { return false }
   }
 
   useEffect(() => {
@@ -56,107 +44,95 @@ export default function VideoPage({ params }: { params: { id: string } }) {
         setVideo(v || null)
         setMe(meRes || null)
         if (!v) return
-        if (v.isFree || v.price === 0) {
-          setStatus('free')
-        } else {
+        if (v.isFree || v.price === 0) setStatus('free')
+        else {
           const owned = await checkOwned(id)
-          if (cancelled) return
-          setStatus(owned ? 'playing' : 'needbuy')
+          if (!cancelled) setStatus(owned ? 'playing' : 'needbuy')
         }
       } catch (e: any) {
         if (!cancelled) setError(String(e?.message || e))
       }
     })()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [id])
 
   async function buy() {
     try {
       const r = await fetch('/api/purchase', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ videoId: id }),
       })
       const j = await r.json()
-      if (j.ok) {
-        setStatus('playing')
-        await refreshMe()
-      } else {
-        alert(j.error || 'Purchase failed')
-      }
+      if (j.ok) { setStatus('playing'); await refreshMe() }
+      else { alert(j.error || 'Xarid amalga oshmadi') }
     } catch (e: any) {
       alert(String(e?.message || e))
     }
   }
 
-  if (!video) {
-    return <div>Loading...</div>
-  }
+  if (!video) return <div>Yuklanmoqda...</div>
 
   return (
-    <div style={{ display: 'grid', gap: 24, gridTemplateColumns: '2fr 1fr' }}>
-      <div>
-        <div
-          style={{
-            aspectRatio: '16 / 9',
-            background: 'rgba(255,255,255,0.06)',
-            borderRadius: 12,
-            overflow: 'hidden',
-          }}
-        >
-          {status === 'playing' || status === 'free' ? (
-            <video src={video.url} controls style={{ width: '100%', height: '100%' }} />
-          ) : (
-            <div
-              style={{
-                width: '100%',
-                height: '100%',
-                display: 'grid',
-                placeItems: 'center',
-                opacity: 0.7,
-              }}
-            >
-              Purchase to watch
-            </div>
-          )}
-        </div>
-
-        <h1 style={{ fontWeight: 800, fontSize: 24, marginTop: 12 }}>{video.title}</h1>
-        <p style={{ opacity: 0.8, marginTop: 8 }}>{video.description}</p>
-        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
-          {video.category ? `Category: ${video.category}` : ''}
-          {video.tags?.length ? `  ·  Tags: ${video.tags.join(', ')}` : ''}
-        </div>
-        {error ? (
-          <div style={{ color: '#ff6f6f', marginTop: 8 }}>Error: {error}</div>
-        ) : null}
-      </div>
-
-      <aside
+    <div style={{ display: 'grid', gap: 16 }}>
+      {/* Video player katta joyda */}
+      <div
         style={{
+          aspectRatio: '16 / 9',
           background: 'rgba(255,255,255,0.06)',
-          padding: 16,
           borderRadius: 12,
-          height: 'fit-content',
+          overflow: 'hidden',
         }}
       >
-        {me?.user ? (
-          <>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>Your coins: {me.user.coins}</div>
-            {video.isFree || video.price === 0 ? (
-              <button onClick={() => setStatus('playing')}>Play (Free)</button>
-            ) : status === 'needbuy' ? (
-              <button onClick={buy}>Buy for {video.price} coins</button>
-            ) : (
-              <button onClick={() => setStatus('playing')}>Play</button>
-            )}
-          </>
+        {status === 'playing' || status === 'free' ? (
+          <video
+            src={video.url}
+            controls
+            style={{ width: '100%', height: '100%' }}
+            playsInline
+            preload="metadata"
+            crossOrigin="anonymous"
+          />
         ) : (
-          <div>Please login to purchase</div>
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'grid',
+              placeItems: 'center',
+              opacity: 0.8,
+              fontWeight: 700,
+            }}
+          >
+            Tomosha qilish uchun sotib oling
+          </div>
         )}
-      </aside>
+      </div>
+
+      {/* Ma'lumotlar va harakatlar – pastda */}
+      <div>
+        <h1 style={{ fontWeight: 800, fontSize: 24 }}>{video.title}</h1>
+        <p style={{ opacity: 0.85, marginTop: 6 }}>{video.description}</p>
+        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
+          {video.category ? `Kategoriya: ${video.category}` : ''}
+          {video.tags?.length ? ` · Teglar: ${video.tags.join(', ')}` : ''}
+        </div>
+
+        <div style={{ marginTop: 12, display: 'flex', gap: 12, alignItems: 'center' }}>
+          {video.isFree || video.price === 0 ? (
+            <button onClick={() => setStatus('playing')}>Bepul tomosha qilish</button>
+          ) : status === 'needbuy' ? (
+            <>
+              <span style={{ fontWeight: 700 }}>Narx: {video.price} tanga</span>
+              <button onClick={buy}>Sotib olish</button>
+            </>
+          ) : (
+            <button onClick={() => setStatus('playing')}>Tomosha qilish</button>
+          )}
+          {me?.user ? <span style={{ opacity: 0.8 }}>Tangalar: {me.user.coins}</span> : <span>Profilga kiring</span>}
+        </div>
+
+        {error ? <div style={{ color: '#ff6f6f', marginTop: 8 }}>Xatolik: {error}</div> : null}
+      </div>
     </div>
   )
 }
