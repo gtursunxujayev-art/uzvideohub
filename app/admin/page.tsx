@@ -9,6 +9,24 @@ type Video = {
 }
 type Txn = { id: number; userId: number; adminId?: number | null; delta: number; reason?: string | null; createdAt: string; user?: any; admin?: any }
 
+// For the "add new" form
+type NewForm = {
+  title: string; description: string; url: string; price: number; isFree: boolean;
+  thumbUrl: string; category: string; tags: string; // tags as comma-separated string
+}
+
+// For the edit form: keep tags as string for the input; convert before sending
+type EditForm = {
+  title?: string
+  description?: string
+  url?: string
+  price?: number
+  isFree?: boolean
+  thumbUrl?: string
+  category?: string
+  tags?: string // comma-separated for the input
+}
+
 export default function AdminPage() {
   const [users, setUsers] = useState<User[]>([])
   const [videos, setVideos] = useState<Video[]>([])
@@ -17,11 +35,12 @@ export default function AdminPage() {
   const [delta, setDelta] = useState<number>(0)
   const [reason, setReason] = useState<string>('')
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<NewForm>({
     title: '', description: '', url: '', price: 0, isFree: false, thumbUrl: '', category: '', tags: ''
   })
+
   const [editId, setEditId] = useState<number | null>(null)
-  const [edit, setEdit] = useState<Partial<Video>>({})
+  const [edit, setEdit] = useState<EditForm>({})
 
   async function load() {
     const u = await fetch('/api/admin/users').then(r => r.ok ? r.json() : [])
@@ -33,10 +52,17 @@ export default function AdminPage() {
 
   async function addVideo(e: React.FormEvent) {
     e.preventDefault()
-    const payload = { ...form, tags: form.tags }
-    const res = await fetch('/api/videos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-    if (res.ok) { setForm({ title: '', description: '', url: '', price: 0, isFree: false, thumbUrl: '', category: '', tags: '' }); load() }
-    else alert('Failed to add video')
+    const payload = { ...form } // server splits comma-separated tags
+    const res = await fetch('/api/videos', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    if (res.ok) {
+      setForm({ title: '', description: '', url: '', price: 0, isFree: false, thumbUrl: '', category: '', tags: '' })
+      load()
+    } else {
+      alert('Failed to add video')
+    }
   }
 
   async function saveCoins() {
@@ -48,17 +74,33 @@ export default function AdminPage() {
     if (res.ok) { setDelta(0); setReason(''); load() } else alert('Failed')
   }
 
-  async function beginEdit(v: Video) {
+  function beginEdit(v: Video) {
     setEditId(v.id)
-    setEdit({ ...v, tags: v.tags })
+    setEdit({
+      title: v.title,
+      description: v.description,
+      url: v.url,
+      price: v.price,
+      isFree: v.isFree,
+      thumbUrl: v.thumbUrl || '',
+      category: v.category || '',
+      tags: (v.tags && v.tags.length ? v.tags.join(', ') : ''),
+    })
   }
 
   async function saveEdit() {
     if (!editId) return
+    // Convert tags string → array (server also accepts string, but this keeps it clean)
+    const payload: any = {
+      ...edit,
+      tags: typeof edit.tags === 'string'
+        ? edit.tags.split(',').map(t => t.trim()).filter(Boolean)
+        : edit.tags,
+    }
     const res = await fetch(`/api/admin/videos/${editId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(edit),
+      body: JSON.stringify(payload),
     })
     if (res.ok) { setEditId(null); setEdit({}); load() } else alert('Failed to update')
   }
@@ -112,7 +154,7 @@ export default function AdminPage() {
         </div>
       </section>
 
-      {/* Users list quick edit coins (absolute set still available via users API) */}
+      {/* Users quick list */}
       <section style={{ background: 'rgba(255,255,255,0.06)', padding: 16, borderRadius: 12 }}>
         <h2 style={{ fontWeight: 800, marginBottom: 12 }}>Users</h2>
         <div style={{ display: 'grid', gap: 8, maxHeight: 420, overflow: 'auto' }}>
