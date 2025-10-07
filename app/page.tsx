@@ -1,54 +1,33 @@
 // app/page.tsx
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
-type Video = {
-  id: number; title: string; description: string; url: string;
-  isFree: boolean; price: number; thumbUrl?: string | null; category?: string | null; tags?: string[];
-}
+type Video = { id: number; title: string; description: string; url: string; isFree: boolean; price: number; thumbUrl?: string | null; category?: string | null; tags?: string[] }
 
 export default function Home() {
   const [videos, setVideos] = useState<Video[]>([])
-  const [q, setQ] = useState('')
-  const [category, setCategory] = useState('')
+  const [err, setErr] = useState<string>('')
 
-  const categories = useMemo(() => {
-    const set = new Set<string>()
-    videos.forEach(v => v.category && set.add(v.category))
-    return Array.from(set).sort()
-  }, [videos])
-
-  async function load() {
-    const params = new URLSearchParams()
-    if (q.trim()) params.set('q', q.trim())
-    if (category.trim()) params.set('category', category.trim())
-    const res = await fetch('/api/videos' + (params.toString() ? `?${params.toString()}` : ''))
-    setVideos(res.ok ? await res.json() : [])
-  }
-
-  useEffect(() => { load() }, []) // initial
-  useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t) }, [q, category])
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const r = await fetch('/api/videos')
+        if (!r.ok) throw new Error('API /api/videos failed')
+        const j = await r.json()
+        setVideos(j || [])
+      } catch (e: any) {
+        setErr(String(e?.message || e))
+      }
+    })()
+  }, [])
 
   return (
     <div>
       <h1 style={{ fontWeight: 800, fontSize: 24, marginBottom: 12 }}>Latest Videos</h1>
-
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-        <input
-          placeholder="Search by title, description, or tag…"
-          value={q}
-          onChange={e => setQ(e.target.value)}
-          style={{ flex: 1 }}
-        />
-        <select value={category} onChange={e => setCategory(e.target.value)}>
-          <option value="">All categories</option>
-          {categories.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-      </div>
-
+      {err ? <div style={{ color: '#ff6f6f', marginBottom: 12 }}>Error: {err}</div> : null}
       <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
-        {videos.map(v => (
+        {videos.map((v) => (
           <Link key={v.id} href={`/video/${v.id}`} style={{ background: 'rgba(255,255,255,0.06)', padding: 12, borderRadius: 12, display: 'block' }}>
             <div
               style={{
@@ -77,11 +56,23 @@ export default function Home() {
             </div>
             <div style={{ fontWeight: 700 }}>{v.title}</div>
             <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>{v.description}</div>
-            {v.tags?.length ? (
-              <div style={{ fontSize: 11, opacity: 0.65, marginTop: 6 }}>#{v.tags.join(' #')}</div>
-            ) : null}
+            {v.tags?.length ? <div style={{ fontSize: 11, opacity: 0.65, marginTop: 6 }}>#{v.tags.join(' #')}</div> : null}
           </Link>
         ))}
+        {!videos.length && !err ? (
+          <div
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              height: 180,
+              borderRadius: 12,
+              display: 'grid',
+              placeItems: 'center',
+              opacity: 0.7,
+            }}
+          >
+            No videos yet — add some in /admin
+          </div>
+        ) : null}
       </div>
     </div>
   )
