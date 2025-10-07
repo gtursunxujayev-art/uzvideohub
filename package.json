@@ -3,11 +3,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npx prisma generate && npx prisma migrate deploy && next build",
+    "build": "npx prisma generate && npx prisma db push && next build",
     "start": "next start",
     "lint": "next lint",
     "prisma": "prisma",
-    "migrate:deploy": "prisma migrate deploy",
+    "db:push": "prisma db push",
     "generate": "prisma generate"
   },
   "dependencies": {
