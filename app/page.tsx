@@ -13,7 +13,7 @@ export default function Home() {
     ;(async () => {
       try {
         const r = await fetch('/api/videos')
-        if (!r.ok) throw new Error('API /api/videos failed')
+        if (!r.ok) throw new Error('API /api/videos xatolik')
         const j = await r.json()
         setVideos(j || [])
       } catch (e: any) {
@@ -24,8 +24,8 @@ export default function Home() {
 
   return (
     <div>
-      <h1 style={{ fontWeight: 800, fontSize: 24, marginBottom: 12 }}>Latest Videos</h1>
-      {err ? <div style={{ color: '#ff6f6f', marginBottom: 12 }}>Error: {err}</div> : null}
+      <h1 style={{ fontWeight: 800, fontSize: 24, marginBottom: 12 }}>Yangi videolar</h1>
+      {err ? <div style={{ color: '#ff6f6f', marginBottom: 12 }}>Xatolik: {err}</div> : null}
       <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
         {videos.map((v) => (
           <Link key={v.id} href={`/video/${v.id}`} style={{ background: 'rgba(255,255,255,0.06)', padding: 12, borderRadius: 12, display: 'block' }}>
@@ -40,12 +40,12 @@ export default function Home() {
                 backgroundPosition: 'center',
               }}
             />
-            <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
               {v.isFree || v.price === 0 ? (
-                <span style={{ fontSize: 12, opacity: 0.85 }}>Free</span>
+                <span style={{ fontSize: 12, opacity: 0.85 }}>Bepul</span>
               ) : (
                 <span style={{ fontSize: 12, color: '#ff9900', border: '1px solid #ff9900', borderRadius: 6, padding: '2px 6px' }}>
-                  Paid · {v.price} coins
+                  Pullik · {v.price} tanga
                 </span>
               )}
               {v.category ? (
@@ -70,7 +70,7 @@ export default function Home() {
               opacity: 0.7,
             }}
           >
-            No videos yet — add some in /admin
+            Hozircha video yo‘q — /admin orqali qo‘shing
           </div>
         ) : null}
       </div>
