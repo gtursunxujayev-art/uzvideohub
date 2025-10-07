@@ -1,4 +1,4 @@
-// app/layout.tsx
+// app/layout.tsx  (only the <nav> updated to include Library)
 import './globals.css'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
@@ -37,6 +37,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </Link>
             <nav style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
               <Link href="/">Home</Link>
+              <Link href="/library">Library</Link>
               <Link href="/admin">Admin</Link>
               <Link href="/login">Login</Link>
             </nav>
