@@ -11,8 +11,18 @@ export default function VideoPage({ params }: { params: { id: string } }) {
   const [me, setMe] = useState<Me | null>(null)
   const [status, setStatus] = useState<'idle' | 'playing' | 'needbuy' | 'free'>('idle')
 
+  async function refreshMe() {
+    const j = await fetch('/api/me').then(r => r.json())
+    setMe(j)
+  }
+
+  async function checkOwned(videoId: number) {
+    const j = await fetch(`/api/purchase/check?videoId=${videoId}`).then(r => r.json())
+    return !!j?.owned
+  }
+
   useEffect(() => {
-    (async () => {
+    ;(async () => {
       const [vlist, meRes] = await Promise.all([
         fetch('/api/videos').then(r => r.json()),
         fetch('/api/me').then(r => r.json()),
@@ -20,7 +30,13 @@ export default function VideoPage({ params }: { params: { id: string } }) {
       const v = (vlist as Video[]).find(x => x.id === id) || null
       setVideo(v || null)
       setMe(meRes || null)
-      if (v) setStatus(v.isFree || v.price === 0 ? 'free' : 'needbuy')
+      if (!v) return
+      if (v.isFree || v.price === 0) {
+        setStatus('free')
+      } else {
+        const owned = await checkOwned(id)
+        setStatus(owned ? 'playing' : 'needbuy')
+      }
     })()
   }, [id])
 
@@ -31,8 +47,12 @@ export default function VideoPage({ params }: { params: { id: string } }) {
       body: JSON.stringify({ videoId: id }),
     })
     const j = await r.json()
-    if (j.ok) setStatus('playing')
-    else alert(j.error || 'Failed')
+    if (j.ok) {
+      setStatus('playing')
+      await refreshMe()
+    } else {
+      alert(j.error || 'Failed')
+    }
   }
 
   if (!video) return <div>Loading...</div>
@@ -59,8 +79,10 @@ export default function VideoPage({ params }: { params: { id: string } }) {
             <div style={{ fontWeight: 700, marginBottom: 8 }}>Your coins: {me.user.coins}</div>
             {video.isFree || video.price === 0 ? (
               <button onClick={() => setStatus('playing')}>Play (Free)</button>
-            ) : (
+            ) : status === 'needbuy' ? (
               <button onClick={buy}>Buy for {video.price} coins</button>
+            ) : (
+              <button onClick={() => setStatus('playing')}>Play</button>
             )}
           </>
         ) : (
