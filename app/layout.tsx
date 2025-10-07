@@ -1,4 +1,4 @@
-// app/layout.tsx  (only the <nav> updated to include Library)
+// app/layout.tsx
 import './globals.css'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
@@ -39,6 +39,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <Link href="/">Home</Link>
               <Link href="/library">Library</Link>
               <Link href="/admin">Admin</Link>
+              <Link href="/tg">Telegram</Link>
               <Link href="/login">Login</Link>
             </nav>
           </div>
