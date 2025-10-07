@@ -1,4 +1,6 @@
 // app/api/auth/telegram/route.ts
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/src/lib/db'
 import { verifyTelegramAuth } from '@/src/lib/telegram'
@@ -24,32 +26,19 @@ export async function POST(req: Request) {
   const adminIds = (process.env.ADMIN_TELEGRAM_IDS || '')
     .split(',')
     .map((x) => x.trim())
-    .filter(Boolean)
-
   const isAdmin = adminIds.includes(telegramId)
 
   let user = await prisma.user.findUnique({ where: { telegramId } })
-
   if (!user) {
     user = await prisma.user.create({
-      data: {
-        telegramId,
-        username,
-        name,
-        isAdmin,
-        coins: 20, // welcome coins
-      },
+      data: { telegramId, username, name, isAdmin, coins: 20 },
     })
   } else if (isAdmin && !user.isAdmin) {
-    user = await prisma.user.update({
-      where: { id: user.id },
-      data: { isAdmin: true },
-    })
+    user = await prisma.user.update({ where: { id: user.id }, data: { isAdmin: true } })
   }
 
   const token = signSession({ userId: user.id, isAdmin: user.isAdmin })
   const res = NextResponse.json({ ok: true })
-
   res.cookies.set(COOKIE, token, {
     httpOnly: true,
     secure: true,
@@ -57,6 +46,5 @@ export async function POST(req: Request) {
     path: '/',
     maxAge: 60 * 60 * 24 * 30,
   })
-
   return res
 }
