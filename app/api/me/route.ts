@@ -6,15 +6,39 @@ import { verifySession } from '@/src/lib/jwt'
 const COOKIE = process.env.SESSION_COOKIE || 'uzvideohub_session'
 
 export async function GET(req: Request) {
-  // @ts-ignore - Next.js adds cookies on request
-  const token = req.cookies?.get?.(COOKIE)?.value || null
-  const session = verifySession<{ userId: number; isAdmin: boolean }>(token)
-  if (!session) return NextResponse.json({ user: null })
+  // @ts-ignore
+  const token = req.cookies?.get?.(COOKIE)?.value || ''
+  const s = verifySession<{ userId: number; isAdmin?: boolean }>(token)
+  if (!s?.userId) return NextResponse.json({ user: null })
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.userId },
-    select: { id: true, name: true, username: true, coins: true, isAdmin: true },
+  const user = await prisma.user.findUnique({ where: { id: s.userId } })
+  if (!user) return NextResponse.json({ user: null })
+
+  return NextResponse.json({
+    user: {
+      id: user.id,
+      username: user.username,
+      coins: user.coins,
+      isAdmin: user.isAdmin,
+    },
+  })
+}
+
+export async function PATCH(req: Request) {
+  // @ts-ignore
+  const token = req.cookies?.get?.(COOKIE)?.value || ''
+  const s = verifySession<{ userId: number }>(token)
+  if (!s?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const body = await req.json()
+  const username = (body?.username ?? '').toString().trim()
+  if (!username) return NextResponse.json({ error: 'Username kerak' }, { status: 400 })
+
+  const updated = await prisma.user.update({
+    where: { id: s.userId },
+    data: { username },
+    select: { id: true, username: true },
   })
 
-  return NextResponse.json({ user })
+  return NextResponse.json({ ok: true, user: updated })
 }
