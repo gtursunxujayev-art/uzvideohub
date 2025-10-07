@@ -1,3 +1,4 @@
+// PostgreSQL (Neon)
 generator client {
   provider = "prisma-client-js"
 }
@@ -23,6 +24,9 @@ model Video {
   title       String
   description String
   url         String
+  thumbUrl    String?
+  category    String?
+  tags        String[]   @default([])
   isFree      Boolean    @default(false)
   price       Int        @default(0)
   createdAt   DateTime   @default(now())
