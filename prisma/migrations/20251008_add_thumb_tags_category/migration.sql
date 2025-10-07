@@ -1,5 +1,0 @@
--- Add new columns to "Video"
-ALTER TABLE "Video"
-ADD COLUMN IF NOT EXISTS "thumbUrl" TEXT,
-ADD COLUMN IF NOT EXISTS "category" TEXT,
-ADD COLUMN IF NOT EXISTS "tags" TEXT[] NOT NULL DEFAULT '{}';
