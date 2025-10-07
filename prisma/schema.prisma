@@ -9,14 +9,15 @@ datasource db {
 }
 
 model User {
-  id          Int       @id @default(autoincrement())
-  telegramId  String    @unique
+  id          Int               @id @default(autoincrement())
+  telegramId  String            @unique
   username    String?
   name        String?
-  coins       Int       @default(0)
-  isAdmin     Boolean   @default(false)
-  createdAt   DateTime  @default(now())
+  coins       Int               @default(0)
+  isAdmin     Boolean           @default(false)
+  createdAt   DateTime          @default(now())
   purchases   Purchase[]
+  coinTxns    CoinTransaction[] @relation("UserCoinTxns", fields: [], references: [])
 }
 
 model Video {
@@ -44,4 +45,18 @@ model Purchase {
   video Video @relation(fields: [videoId], references: [id])
 
   @@unique([userId, videoId])
+}
+
+model CoinTransaction {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  adminId   Int?
+  delta     Int
+  reason    String?  // e.g., "bonus", "refund", "manual"
+  createdAt DateTime @default(now())
+
+  user   User @relation(fields: [userId], references: [id], name: "UserCoinTxns")
+  admin  User @relation(fields: [adminId], references: [id])
+
+  @@index([userId, createdAt])
 }
