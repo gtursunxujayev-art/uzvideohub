@@ -8,33 +8,30 @@ const SITE = process.env.PUBLIC_SITE_URL || 'https://uzvideohub.vercel.app'
 
 export async function POST(req: Request) {
   try {
-    // ✅ No secret validation at all
     const update = await req.json()
 
-    // Handle messages
     const message = update.message || update.edited_message
     if (message?.chat?.id) {
       const chatId = message.chat.id as number
       const text = (message.text || '').trim()
 
       if (text === '/start' || text.startsWith('/start')) {
-        await sendMessage(chatId, 'Welcome to uzvideohub! Tap to open:', {
+        // ✅ Inline keyboard with web_app (opens INSIDE Telegram)
+        await sendMessage(chatId, 'Welcome to uzvideohub — open the app:', {
           reply_markup: {
-            keyboard: [
+            inline_keyboard: [
               [{ text: 'Open uzvideohub', web_app: { url: `${SITE}/tg` } }],
             ],
-            resize_keyboard: true,
-            one_time_keyboard: false,
           },
         })
       } else if (text === '/help') {
         await sendMessage(
           chatId,
           `Commands:
-/start — show WebApp button
+/start — open the app
 /help — this help
 
-Tap "Open uzvideohub" to sign in and watch videos.`
+Tip: use the top-right “Open” button to launch inside Telegram.`
         )
       } else {
         await sendMessage(chatId, 'Send /start to open the app.')
