@@ -44,8 +44,8 @@ export default function VideoPage({ params }: { params: { id: string } }) {
   const [status, setStatus] = useState<'idle' | 'playing' | 'needbuy' | 'free'>('idle')
   const [error, setError] = useState<string>('')
 
-  const [playUrl, setPlayUrl] = useState<string>('')   // resolved &/or proxied video src
-  const [thumbUrl, setThumbUrl] = useState<string>('') // resolved &/or proxied poster src
+  const [playUrl, setPlayUrl] = useState<string>('')   // resolved/proxied video
+  const [thumbUrl, setThumbUrl] = useState<string>('') // resolved/proxied image
 
   async function refreshMe() {
     try { const j = await fetch('/api/me').then((r) => r.json()); setMe(j) } catch {}
@@ -68,26 +68,18 @@ export default function VideoPage({ params }: { params: { id: string } }) {
         setMe(meRes || null)
         if (!v) return
 
-        // Resolve Yandex → direct href
+        // Resolve and proxy sources
         let src = v.url
         if (isYandexLink(src)) src = await resolveYandex(src)
+        if (isTelegramFile(src) || isYandexLink(src)) src = proxied(src)
+        setPlayUrl(src)
 
-        // Proxy Telegram & Yandex through our server for proper CORS/Range
-        if (isTelegramFile(src) || isYandexLink(src)) {
-          setPlayUrl(proxied(src))
-        } else {
-          setPlayUrl(src)
-        }
-
-        // Poster (thumb) – proxy if Yandex/Telegram
         let poster = v.thumbUrl || ''
         if (poster) {
           if (isYandexLink(poster)) poster = await resolveYandex(poster)
           if (isTelegramFile(poster) || isYandexLink(poster)) poster = proxied(poster)
-          setThumbUrl(poster)
-        } else {
-          setThumbUrl('')
         }
+        setThumbUrl(poster)
 
         if (v.isFree || v.price === 0) setStatus('free')
         else {
