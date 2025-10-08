@@ -1,40 +1,44 @@
-// app/api/videos/[id]/route.ts
+// app/api/videos/route.ts
 export const runtime = 'nodejs'
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/src/lib/db'
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET() {
   try {
-    const id = parseInt(params.id, 10)
-    if (!Number.isFinite(id)) {
-      return NextResponse.json({ ok: false, error: 'Invalid id' }, { status: 400 })
-    }
-
-    const video = await prisma.video.findUnique({
-      where: { id },
+    // Minimal, safe SELECT for the homepage
+    const rows = await prisma.video.findMany({
+      orderBy: { createdAt: 'desc' },
       select: {
         id: true,
-        code: true,
         title: true,
         description: true,
-        url: true,
-        isFree: true,
-        price: true,
         thumbUrl: true,
+        price: true,
+        isFree: true,
         category: true,
-        tags: true,
-        createdAt: true,
+        code: true,
       },
+      take: 200,
     })
 
-    if (!video) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 })
+    // Filter out any unexpected/falsy rows just in case
+    const items = (rows || []).filter(
+      (v) => v && typeof v.id === 'number' && Number.isFinite(v.id)
+    )
 
-    return NextResponse.json({ ok: true, item: video })
+    return NextResponse.json({
+      ok: true,
+      items,
+      total: items.length,
+      page: 1,
+      limit: items.length,
+    })
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 })
+    // Always return a safe JSON shape
+    return NextResponse.json(
+      { ok: false, error: String(e?.message || e), items: [], total: 0, page: 1, limit: 0 },
+      { status: 500 }
+    )
   }
 }
