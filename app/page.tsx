@@ -1,4 +1,3 @@
-// app/page.tsx
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
@@ -20,34 +19,29 @@ export default function Home() {
   const [all, setAll] = useState<Video[]>([])
   const [error, setError] = useState<string>('')
 
-  // Filters
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('')
   const [sort, setSort] = useState<SortKey>('newest')
 
-  // Load once
   useEffect(() => {
     ;(async () => {
       try {
-        setError('')
         const res = await fetch('/api/videos', { cache: 'no-store' })
         const j = await res.json()
-        if (!res.ok || !j?.ok || !Array.isArray(j.items)) throw new Error(j?.error || 'Server xatosi')
-        const safe: Video[] = j.items.filter((v: any) => v && Number.isFinite(v.id))
-        setAll(safe)
+        if (!res.ok || !j?.ok || !Array.isArray(j.items))
+          throw new Error(j?.error || 'Server xatosi')
+        setAll(j.items.filter((v: any) => v && Number.isFinite(v.id)))
       } catch (e: any) {
         setError(String(e?.message || e))
       }
     })()
   }, [])
 
-  // Derive categories from data
   const categories = useMemo(
     () => Array.from(new Set(all.map(v => v.category).filter(Boolean))) as string[],
     [all]
   )
 
-  // Client-side filter + sort
   const list = useMemo(() => {
     let out = all
     if (q.trim()) {
@@ -66,100 +60,100 @@ export default function Home() {
     if (sort === 'title') out = [...out].sort((a, b) => (a.title || '').localeCompare(b.title || ''))
     else if (sort === 'price_asc') out = [...out].sort((a, b) => (a.price || 0) - (b.price || 0))
     else if (sort === 'price_desc') out = [...out].sort((a, b) => (b.price || 0) - (a.price || 0))
-    // 'newest' keeps server order (already newest first)
     return out
   }, [all, q, category, sort])
 
   return (
     <div className="container" style={{ display: 'grid', gap: 16 }}>
-      <h1 style={{ fontWeight: 800, fontSize: 22, margin: 0 }}>So‘nggi videolar</h1>
+      <h1 style={{ fontWeight: 800, fontSize: 22 }}>So‘nggi videolar</h1>
 
       {/* Filters */}
       <div className="section" style={{ display: 'grid', gap: 10 }}>
-        <div style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr' }}>
-          <input
-            placeholder="Qidirish (nom, kod, tavsif)..."
-            value={q}
-            onChange={e => setQ(e.target.value)}
+        <input
+          placeholder="Qidirish (nom, kod, tavsif)..."
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          style={{
+            width: '100%', padding: 10, borderRadius: 10,
+            border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: '#fff'
+          }}
+        />
+        <div style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr' }}>
+          <select
+            value={category}
+            onChange={e => setCategory(e.target.value)}
             style={{
-              width: '100%', padding: 10, borderRadius: 10,
+              padding: 10, borderRadius: 10,
               border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: '#fff'
             }}
-          />
-          <div style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr' }}>
-            <select
-              value={category}
-              onChange={e => setCategory(e.target.value)}
-              style={{
-                padding: 10, borderRadius: 10,
-                border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: '#fff'
-              }}
-            >
-              <option value="">Kategoriya: barchasi</option>
-              {categories.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <select
-              value={sort}
-              onChange={e => setSort(e.target.value as SortKey)}
-              style={{
-                padding: 10, borderRadius: 10,
-                border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: '#fff'
-              }}
-            >
-              <option value="newest">Saralash: Yangi</option>
-              <option value="title">Nom bo‘yicha</option>
-              <option value="price_asc">Narx: arzon → qimmat</option>
-              <option value="price_desc">Narx: qimmat → arzon</option>
-            </select>
-          </div>
+          >
+            <option value="">Kategoriya: barchasi</option>
+            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select
+            value={sort}
+            onChange={e => setSort(e.target.value as SortKey)}
+            style={{
+              padding: 10, borderRadius: 10,
+              border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: '#fff'
+            }}
+          >
+            <option value="newest">Saralash: Yangi</option>
+            <option value="title">Nom bo‘yicha</option>
+            <option value="price_asc">Narx: arzon → qimmat</option>
+            <option value="price_desc">Narx: qimmat → arzon</option>
+          </select>
         </div>
       </div>
 
-      {error && (
-        <div className="section" style={{ color: '#ffb4b4' }}>
-          Xatolik: {error}
-        </div>
-      )}
+      {error && <div style={{ color: '#ffb4b4' }}>Xatolik: {error}</div>}
+      {!error && list.length === 0 && <div>Mos video topilmadi.</div>}
 
-      {!error && list.length === 0 && (
-        <div className="section">Mos video topilmadi.</div>
-      )}
-
-      {/* One card per row */}
       {!error && list.length > 0 && (
-        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr' }}>
+        <div style={{ display: 'grid', gap: 20 }}>
           {list.map(v => (
             <a
               key={v.id}
               href={`/video/${v.id}`}
               style={{
-                display: 'grid',
-                gridTemplateColumns: '160px 1fr',
-                gap: 12,
-                alignItems: 'stretch',
-                borderRadius: 12,
+                display: 'block',
+                borderRadius: 14,
                 overflow: 'hidden',
                 background: 'rgba(255,255,255,0.06)',
                 textDecoration: 'none',
                 color: 'inherit',
               }}
             >
-              {/* Thumb (left) */}
+              {/* Top: thumbnail (red rectangle area) */}
               {v.thumbUrl ? (
                 <img
                   src={v.thumbUrl}
                   alt={v.title}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', aspectRatio: '16/9' }}
+                  style={{
+                    width: '100%',
+                    aspectRatio: '16 / 9',
+                    objectFit: 'cover',
+                    background: '#320000'
+                  }}
                 />
               ) : (
-                <div style={{ background: 'rgba(255,255,255,0.08)', aspectRatio: '16/9' }} />
+                <div
+                  style={{
+                    width: '100%',
+                    aspectRatio: '16 / 9',
+                    background: '#320000'
+                  }}
+                />
               )}
 
-              {/* Content (right) */}
-              <div style={{ padding: 10, display: 'grid', gap: 6 }}>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>
-                  {v.title} {v.code ? <span style={{ opacity: 0.6, fontSize: 13 }}>· #{v.code}</span> : null}
-                </div>
+              {/* Bottom: name/description/price (green area) */}
+              <div style={{
+                padding: 12,
+                display: 'grid',
+                gap: 4,
+                background: 'rgba(0,0,0,0.15)'
+              }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>{v.title}</div>
                 <div style={{ fontSize: 13, opacity: 0.8 }}>{v.category || 'Kategoriya yo‘q'}</div>
                 <div style={{ fontSize: 13, color: v.isFree ? '#7fff9e' : '#ffbf69' }}>
                   {v.isFree ? 'Bepul' : `${v.price} tanga`}
