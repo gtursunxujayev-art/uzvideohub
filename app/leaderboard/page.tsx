@@ -10,7 +10,7 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     ;(async () => {
-      const j = await fetch('/api/referrals').then(r => r.json())
+      const j = await fetch('/api/referrals', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ leaderboard: [], myInvites: [] }))
       setData(j)
     })()
   }, [])
@@ -20,6 +20,15 @@ export default function LeaderboardPage() {
   return (
     <div style={{ display: 'grid', gap: 24 }}>
       <h1 style={{ fontWeight: 800, fontSize: 26 }}>🔝 Takliflar reytingi</h1>
+
+      {/* Promo banner */}
+      <div style={{
+        background: 'linear-gradient(90deg, rgba(255,153,0,0.15), rgba(255,153,0,0.05))',
+        border: '1px solid rgba(255,153,0,0.35)',
+        padding: 14, borderRadius: 12, fontWeight: 700
+      }}>
+        Har bir taklif qilgan do‘stingiz uchun <b>5 tanga</b> bonus oling.
+      </div>
 
       <div style={{ background: 'rgba(255,255,255,0.06)', padding: 16, borderRadius: 12 }}>
         <h2 style={{ fontWeight: 700, marginBottom: 12 }}>Eng faol foydalanuvchilar</h2>
