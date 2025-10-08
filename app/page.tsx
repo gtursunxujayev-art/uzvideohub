@@ -24,109 +24,113 @@ export default function Home() {
         setError('')
         const res = await fetch('/api/videos', { cache: 'no-store' })
         const j = await res.json()
-        if (!res.ok || !j?.ok || !Array.isArray(j.items))
+        if (!res.ok || !j?.ok || !Array.isArray(j.items)) {
           throw new Error(j?.error || 'Serverdan noto‘g‘ri javob')
-        setVideos(j.items)
+        }
+        // Only keep truly valid items
+        const safe: Video[] = j.items.filter(
+          (v: any) => v && typeof v.id === 'number' && Number.isFinite(v.id)
+        )
+        setVideos(safe)
       } catch (e: any) {
         setError(String(e?.message || e))
+        setVideos([])
       }
     })()
   }, [])
-
-  if (error)
-    return (
-      <div className="container" style={{ color: 'salmon', marginTop: 16 }}>
-        Xatolik: {error}
-      </div>
-    )
-
-  if (!videos.length)
-    return (
-      <div className="container" style={{ marginTop: 16 }}>
-        Hozircha video mavjud emas.
-      </div>
-    )
 
   return (
     <div className="container" style={{ display: 'grid', gap: 18 }}>
       <h1 style={{ fontWeight: 800, fontSize: 22 }}>So‘nggi videolar</h1>
 
-      <div
-        style={{
-          display: 'grid',
-          gap: 12,
-          gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-        }}
-      >
-        {videos.map((v) => (
-          <a
-            key={v.id}
-            href={`/video/${v.id}`}
-            style={{
-              display: 'block',
-              borderRadius: 10,
-              overflow: 'hidden',
-              background: 'rgba(255,255,255,0.06)',
-              textDecoration: 'none',
-              color: 'inherit',
-            }}
-          >
-            {v.thumbUrl ? (
-              <img
-                src={v.thumbUrl}
-                alt={v.title}
-                style={{
-                  width: '100%',
-                  aspectRatio: '16 / 9',
-                  objectFit: 'cover',
-                }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: '100%',
-                  aspectRatio: '16 / 9',
-                  background: 'rgba(255,255,255,0.08)',
-                }}
-              />
-            )}
-            <div style={{ padding: 8 }}>
-              <div
-                style={{
-                  fontWeight: 600,
-                  fontSize: 15,
-                  marginBottom: 4,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {v.title}
+      {error && (
+        <div className="section" style={{ color: '#ffb4b4' }}>
+          Xatolik: {error}
+        </div>
+      )}
+
+      {!error && videos.length === 0 && (
+        <div className="section">Hozircha video mavjud emas.</div>
+      )}
+
+      {!error && videos.length > 0 && (
+        <div
+          style={{
+            display: 'grid',
+            gap: 12,
+            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+          }}
+        >
+          {videos.map((v) => (
+            <a
+              key={v.id}
+              href={`/video/${v.id}`}
+              style={{
+                display: 'block',
+                borderRadius: 10,
+                overflow: 'hidden',
+                background: 'rgba(255,255,255,0.06)',
+                textDecoration: 'none',
+                color: 'inherit',
+              }}
+            >
+              {v.thumbUrl ? (
+                <img
+                  src={v.thumbUrl}
+                  alt={v.title}
+                  style={{
+                    width: '100%',
+                    aspectRatio: '16 / 9',
+                    objectFit: 'cover',
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: '100%',
+                    aspectRatio: '16 / 9',
+                    background: 'rgba(255,255,255,0.08)',
+                  }}
+                />
+              )}
+              <div style={{ padding: 8 }}>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    fontSize: 15,
+                    marginBottom: 4,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {v.title} {v.code ? `· #${v.code}` : ''}
+                </div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    opacity: 0.7,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {v.category || 'Kategoriya yo‘q'}
+                </div>
+                <div
+                  style={{
+                    marginTop: 6,
+                    fontSize: 13,
+                    color: v.isFree ? '#7fff9e' : '#ffbf69',
+                  }}
+                >
+                  {v.isFree ? 'Bepul' : `${v.price} tanga`}
+                </div>
               </div>
-              <div
-                style={{
-                  fontSize: 13,
-                  opacity: 0.7,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {v.category || 'Kategoriya yo‘q'}
-              </div>
-              <div
-                style={{
-                  marginTop: 6,
-                  fontSize: 13,
-                  color: v.isFree ? '#7fff9e' : '#ffbf69',
-                }}
-              >
-                {v.isFree ? 'Bepul' : `${v.price} tanga`}
-              </div>
-            </div>
-          </a>
-        ))}
-      </div>
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
