@@ -53,7 +53,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'Tangalar yetarli emas (balance)' }, { status: 400 })
     }
 
-    // Charge + create purchase (note: Purchase requires price)
+    // Charge + create purchase (Purchase requires price)
     const result = await prisma.$transaction(async (tx) => {
       const updated = await tx.user.update({
         where: { id: s.userId },
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
         data: {
           userId: s.userId,
           videoId,
-          price: video.price, // <- REQUIRED by your schema
+          price: video.price,
         },
       })
       return updated
