@@ -1,10 +1,12 @@
 // app/page.tsx
 'use client'
-import { useEffect, useState } from 'react'
+
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 
 type Video = {
   id: number
+  code?: string | null
   title: string
   description: string
   url: string
@@ -12,120 +14,128 @@ type Video = {
   price: number
   thumbUrl?: string | null
   category?: string | null
-  tags?: string[]
+  tags: string[]
 }
 
-function isYandexLink(u?: string | null) {
-  const s = u || ''
-  return s.includes('disk.yandex') || s.includes('yadi.sk')
-}
-function isTgFileUrl(u?: string | null) {
-  const s = u || ''
-  return s.includes('api.telegram.org/file') || s.includes('telegram-cdn.org')
-}
-function extractFileId(val?: string | null): string | null {
-  if (!val) return null
-  let s = val.trim()
-  if (s.startsWith('file_id:')) s = s.slice('file_id:'.length)
-  if (!s.includes('://') && s.length > 30) return s
-  return null
-}
-async function resolveYandexPublic(link: string): Promise<string> {
-  try {
-    const r = await fetch(`/api/yandex/resolve?url=${encodeURIComponent(link)}`)
-    const j = await r.json()
-    if (j?.ok && j?.href) return j.href as string
-  } catch {}
-  return link
-}
-function toThumbSrc(input?: string | null): Promise<string> | string {
-  if (!input) return ''
-  const fid = extractFileId(input)
-  if (fid) return `/api/telegram/file?file_id=${encodeURIComponent(fid)}`
-  if (isYandexLink(input)) return resolveYandexPublic(input)
-  // Telegram direct URL is also fine for <img>/background
-  return input
+type ApiRes = {
+  ok: boolean
+  total: number
+  page: number
+  limit: number
+  items: Video[]
 }
 
 export default function Home() {
-  const [videos, setVideos] = useState<Video[]>([])
-  const [thumbs, setThumbs] = useState<Record<number, string>>({})
-  const [err, setErr] = useState<string>('')
+  const [q, setQ] = useState('')
+  const [category, setCategory] = useState('')
+  const [tag, setTag] = useState('')
+  const [sort, setSort] = useState<'newest' | 'price_asc' | 'price_desc' | 'title'>('newest')
 
-  useEffect(() => {
-    ;(async () => {
-      try {
-        const r = await fetch('/api/videos')
-        if (!r.ok) throw new Error('API /api/videos failed')
-        const j: Video[] = await r.json()
-        setVideos(j || [])
+  const [data, setData] = useState<ApiRes>({ ok: true, total: 0, page: 1, limit: 24, items: [] })
 
-        // resolve thumbnails
-        const out: Record<number, string> = {}
-        await Promise.all(
-          (j || []).map(async (v) => {
-            const t = await toThumbSrc(v.thumbUrl || '')
-            out[v.id] = t || ''
-          })
-        )
-        setThumbs(out)
-      } catch (e: any) {
-        setErr(String(e?.message || e))
-      }
-    })()
-  }, [])
+  const params = useMemo(() => {
+    const u = new URLSearchParams()
+    if (q) u.set('q', q)
+    if (category) u.set('category', category)
+    if (tag) u.set('tag', tag)
+    if (sort) u.set('sort', sort)
+    return u.toString()
+  }, [q, category, tag, sort])
+
+  const load = async () => {
+    const r = await fetch('/api/videos?' + params, { cache: 'no-store' })
+    const j = await r.json()
+    setData(j)
+  }
+
+  useEffect(() => { load() /* eslint-disable-next-line */ }, [params])
+
+  // Collect categories from current data for quick filter chips
+  const categories = Array.from(new Set(data.items.map(v => v.category).filter(Boolean))) as string[]
 
   return (
-    <div>
-      <h1 style={{ fontWeight: 800, fontSize: 24, marginBottom: 12 }}>Yangi videolar</h1>
-      {err ? <div style={{ color: '#ff6f6f', marginBottom: 12 }}>Xatolik: {err}</div> : null}
-      <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
-        {videos.map((v) => (
-          <Link key={v.id} href={`/video/${v.id}`} style={{ background: 'rgba(255,255,255,0.06)', padding: 12, borderRadius: 12, display: 'block' }}>
-            <div
-              style={{
-                height: 140,
-                borderRadius: 8,
-                marginBottom: 8,
-                background: 'rgba(0,0,0,0.35)',
-                backgroundImage: thumbs[v.id] ? `url(${thumbs[v.id]})` : undefined,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-              }}
-            />
-            <div style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
-              {v.isFree || v.price === 0 ? (
-                <span style={{ fontSize: 12, opacity: 0.85 }}>Bepul</span>
-              ) : (
-                <span style={{ fontSize: 12, color: '#ff9900', border: '1px solid #ff9900', borderRadius: 6, padding: '2px 6px' }}>
-                  Pullik · {v.price} tanga
-                </span>
-              )}
-              {v.category ? (
-                <span style={{ fontSize: 11, opacity: 0.75, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '2px 6px' }}>
-                  {v.category}
-                </span>
-              ) : null}
+    <div style={{ display: 'grid', gap: 16 }}>
+      <h1 style={{ fontWeight: 800, fontSize: 24 }}>So‘nggi videolar</h1>
+
+      {/* Filters */}
+      <div style={{ display: 'grid', gap: 8, background: 'rgba(255,255,255,0.06)', padding: 12, borderRadius: 12 }}>
+        <div style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr 1fr 1fr' }}>
+          <input placeholder="Qidirish..." value={q} onChange={e => setQ(e.target.value)} />
+          <input placeholder="Kategoriya (masalan: Sport)" value={category} onChange={e => setCategory(e.target.value)} />
+          <input placeholder="Teg (masalan: kulgu)" value={tag} onChange={e => setTag(e.target.value)} />
+          <select value={sort} onChange={e => setSort(e.target.value as any)}>
+            <option value="newest">Saralash: Yangi</option>
+            <option value="price_asc">Narx: arzon → qimmat</option>
+            <option value="price_desc">Narx: qimmat → arzon</option>
+            <option value="title">Alifbo bo‘yicha</option>
+          </select>
+        </div>
+
+        {/* Quick category chips */}
+        {categories.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {categories.map(c => (
+              <button
+                key={c}
+                onClick={() => setCategory(c || '')}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 999,
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  background: category === c ? 'rgba(255,153,0,0.2)' : 'transparent'
+                }}
+              >
+                {c}
+              </button>
+            ))}
+            {category && <button onClick={() => setCategory('')}>Tozalash</button>}
+          </div>
+        )}
+      </div>
+
+      {/* Grid */}
+      <div
+        style={{
+          display: 'grid',
+          gap: 16,
+          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+        }}
+      >
+        {data.items.map(v => (
+          <Link key={v.id} href={`/video/${v.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ position: 'relative', aspectRatio: '16 / 9', background: 'rgba(255,255,255,0.04)' }}>
+                {v.thumbUrl ? (
+                  v.thumbUrl.startsWith('file_id:')
+                    ? <div style={{ fontSize: 12, opacity: 0.7, padding: 8 }}>Telegram file_id poster</div>
+                    : <img src={v.thumbUrl} alt={v.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : null}
+                {/* Code badge */}
+                {v.code ? (
+                  <div style={{
+                    position: 'absolute', top: 8, left: 8, background: 'rgba(0,0,0,0.6)', padding: '4px 8px',
+                    borderRadius: 6, fontSize: 12, letterSpacing: 1
+                  }}>
+                    #{v.code}
+                  </div>
+                ) : null}
+                {/* Price badge */}
+                <div style={{
+                  position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.6)', padding: '4px 8px',
+                  borderRadius: 6, fontSize: 12
+                }}>
+                  {v.isFree ? 'Bepul' : `${v.price} tanga`}
+                </div>
+              </div>
+              <div style={{ padding: 12 }}>
+                <div style={{ fontWeight: 700, marginBottom: 4, lineHeight: 1.2 }}>{v.title}</div>
+                <div style={{ opacity: 0.8, fontSize: 13 }}>
+                  {(v.category || '')} {v.tags?.length ? `• ${v.tags.slice(0, 3).join(', ')}` : ''}
+                </div>
+              </div>
             </div>
-            <div style={{ fontWeight: 700 }}>{v.title}</div>
-            <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>{v.description}</div>
-            {v.tags?.length ? <div style={{ fontSize: 11, opacity: 0.65, marginTop: 6 }}>#{v.tags.join(' #')}</div> : null}
           </Link>
         ))}
-        {!videos.length && !err ? (
-          <div
-            style={{
-              background: 'rgba(255,255,255,0.06)',
-              height: 180,
-              borderRadius: 12,
-              display: 'grid',
-              placeItems: 'center',
-              opacity: 0.7,
-            }}
-          >
-            Hozircha video yo‘q — /admin orqali qo‘shing
-          </div>
-        ) : null}
       </div>
     </div>
   )
