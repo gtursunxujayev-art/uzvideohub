@@ -3,48 +3,93 @@ export const runtime = 'nodejs'
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/src/lib/db'
-import { verifyTelegramAuth } from '@/src/lib/telegram'
 import { signSession } from '@/src/lib/jwt'
 
+/**
+ * Body JSON (from your Telegram login flow):
+ * {
+ *   telegramId: string | number,
+ *   username?: string,
+ *   name?: string,
+ *   displayName?: string
+ * }
+ *
+ * Note: Prisma schema uses `tgId` (mapped to DB column "telegramId").
+ */
+
 const COOKIE = process.env.SESSION_COOKIE || 'uzvideohub_session'
+const adminIds = (process.env.ADMIN_TELEGRAM_IDS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
 
 export async function POST(req: Request) {
-  const body = (await req.json()) as Record<string, string>
+  try {
+    const body = await req.json().catch(() => ({}))
+    const telegramId = String(body.telegramId || '')
+    const username = body.username || null
+    const name = body.name || null
+    const displayName = body.displayName || null
 
-  if (!verifyTelegramAuth(body)) {
-    return NextResponse.json(
-      { ok: false, error: 'Auth failed: bad signature' },
-      { status: 401 }
-    )
-  }
+    if (!telegramId) {
+      return NextResponse.json({ ok: false, error: 'telegramId required' }, { status: 400 })
+    }
 
-  const telegramId = String(body.id)
-  const username = body.username || null
-  const name =
-    [body.first_name, body.last_name].filter(Boolean).join(' ').trim() || null
+    const isAdmin = adminIds.includes(telegramId)
 
-  const adminIds = (process.env.ADMIN_TELEGRAM_IDS || '')
-    .split(',')
-    .map((x) => x.trim())
-  const isAdmin = adminIds.includes(telegramId)
-
-  let user = await prisma.user.findUnique({ where: { telegramId } })
-  if (!user) {
-    user = await prisma.user.create({
-      data: { telegramId, username, name, isAdmin, coins: 20 },
+    // ❗ Prisma field is tgId (mapped to DB column "telegramId")
+    let user = await prisma.user.findUnique({
+      where: { tgId: telegramId },
+      select: {
+        id: true, tgId: true, username: true, name: true, displayName: true,
+        coins: true, isAdmin: true, referralCode: true, referredByUserId: true
+      }
     })
-  } else if (isAdmin && !user.isAdmin) {
-    user = await prisma.user.update({ where: { id: user.id }, data: { isAdmin: true } })
-  }
 
-  const token = signSession({ userId: user.id, isAdmin: user.isAdmin })
-  const res = NextResponse.json({ ok: true })
-  res.cookies.set(COOKIE, token, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30,
-  })
-  return res
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          tgId: telegramId,
+          username,
+          name,
+          displayName,
+          isAdmin,
+          coins: 20, // welcome bonus (adjust as you like)
+        },
+        select: {
+          id: true, tgId: true, username: true, name: true, displayName: true,
+          coins: true, isAdmin: true, referralCode: true, referredByUserId: true
+        }
+      })
+    } else {
+      // light profile refresh + admin flag refresh
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          username: username ?? user.username,
+          name: name ?? user.name,
+          displayName: displayName ?? user.displayName,
+          isAdmin,
+        },
+        select: {
+          id: true, tgId: true, username: true, name: true, displayName: true,
+          coins: true, isAdmin: true, referralCode: true, referredByUserId: true
+        }
+      })
+    }
+
+    // Issue session cookie
+    const token = signSession({ userId: user.id, isAdmin: user.isAdmin })
+    const res = NextResponse.json({ ok: true, user })
+    res.cookies.set(COOKIE, token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+    })
+    return res
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 })
+  }
 }
