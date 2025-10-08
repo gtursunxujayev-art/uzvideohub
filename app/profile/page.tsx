@@ -23,12 +23,10 @@ export default function ProfilePage() {
   useEffect(() => {
     ;(async () => {
       try {
-        // Load current user
         const m: MeRes = await fetch('/api/me', { cache: 'no-store' }).then(r => r.json())
         setMe(m || { user: null })
 
         if (m?.user) {
-          // If user has no code yet, ask server to ensure/generate one
           const r = await fetch('/api/profile/refcode', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ code: '' }))
           const code = r?.code || ''
           setRefCode(code)
@@ -37,7 +35,6 @@ export default function ProfilePage() {
           if (botUser) {
             setRefLink(`https://t.me/${botUser}?start=ref_${code}`)
           } else {
-            // fallback to web deep link
             setRefLink(`${location.origin}/tg?ref=${code}`)
           }
         }
@@ -60,11 +57,22 @@ export default function ProfilePage() {
         <div><b>Tangalar:</b> {me.user.coins}</div>
       </div>
 
-      <div style={{ background: 'rgba(255,255,255,0.06)', padding: 16, borderRadius: 12, display: 'grid', gap: 8 }}>
-        <div style={{ fontWeight: 700 }}>Do‘stlarni taklif etish (referal)</div>
-        <div style={{ fontSize: 14, opacity: 0.85 }}>
-          Havolangiz orqali kelgan yangi foydalanuvchi ro‘yxatdan o‘tsa — sizga <b>bonus tangalar</b> beriladi.
+      <div style={{ background: 'rgba(255,255,255,0.06)', padding: 16, borderRadius: 12, display: 'grid', gap: 10 }}>
+        <div style={{ fontWeight: 700, fontSize: 18 }}>Do‘stlarni taklif etish (referal)</div>
+
+        {/* Promo line requested */}
+        <div style={{
+          background: 'linear-gradient(90deg, rgba(255,153,0,0.15), rgba(255,153,0,0.05))',
+          border: '1px solid rgba(255,153,0,0.35)',
+          padding: 10, borderRadius: 10, fontWeight: 700
+        }}>
+          Har bir taklif qilgan do‘stingiz uchun <b>5 tanga</b> bonus oling.
         </div>
+
+        <div style={{ fontSize: 14, opacity: 0.85 }}>
+          Havolangiz orqali kelgan yangi foydalanuvchi ro‘yxatdan o‘tsa — sizga bonus tangalar beriladi.
+        </div>
+
         <div style={{ display: 'grid', gap: 8 }}>
           <div><b>Kod:</b> {refCode}</div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
