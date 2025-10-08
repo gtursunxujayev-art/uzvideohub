@@ -31,9 +31,13 @@ export default function AdminPage() {
   const load = async () => {
     setErr('')
     try {
-      const r = await fetch('/api/videos?limit=200', { cache: 'no-store' })
+      // NOTE: load from the new admin endpoint (no shaping/filtering)
+      const r = await fetch('/api/admin/videos', { cache: 'no-store' })
       const j = await r.json()
-      setList(Array.isArray(j?.items) ? j.items : [])
+      if (!r.ok || !j?.ok || !Array.isArray(j.items)) {
+        throw new Error(j?.error || 'Yuklab bo‘lmadi')
+      }
+      setList(j.items)
     } catch (e: any) {
       setErr(String(e?.message || e))
       setList([])
@@ -53,7 +57,7 @@ export default function AdminPage() {
       const j = await r.json().catch(() => ({}))
       if (!r.ok || !j?.ok) throw new Error(j?.error || 'Create failed')
       setNewV({ isFree: false, price: 0 })
-      await load()
+      await load() // <- refresh from admin endpoint
       alert('✅ Video qo‘shildi!')
     } catch (e: any) {
       setErr(String(e?.message || e))
