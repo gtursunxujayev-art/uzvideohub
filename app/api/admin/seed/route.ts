@@ -1,83 +1,96 @@
 // app/api/admin/seed/route.ts
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { prisma } from '@/src/lib/db'
 import { verifySession } from '@/src/lib/jwt'
 
 const COOKIE = process.env.SESSION_COOKIE || 'uzvideohub_session'
 
-export async function POST(req: Request) {
-  // @ts-ignore - Next injects cookies on Request
-  const token = req.cookies?.get?.(COOKIE)?.value || ''
-  const s = verifySession<{ isAdmin: boolean }>(token)
-  if (!s?.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-
-  // Demo videos (replace URLs with your Yandex Disk direct links)
-  const demos = [
-    {
-      title: 'Charisma Basics — Eye Contact',
-      description: 'Quick intro lesson on practical eye contact for leaders.',
-      url: 'https://example.com/video1.mp4',
-      thumbUrl: 'https://images.unsplash.com/photo-1520975922284-8b456906c813?q=80&w=1200',
-      category: 'Coaching',
-      tags: ['charisma', 'leadership', 'intro'],
-      isFree: true,
-      price: 0,
-    },
-    {
-      title: 'Public Speaking: Open Strong',
-      description: '3 opening patterns for high-stakes presentations.',
-      url: 'https://example.com/video2.mp4',
-      thumbUrl: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=1200',
-      category: 'Speaking',
-      tags: ['speech', 'openers', 'ceo'],
-      isFree: false,
-      price: 15,
-    },
-    {
-      title: 'Negotiation Tactics for CEOs',
-      description: 'Anchoring, mirroring, and silence — fast overview.',
-      url: 'https://example.com/video3.mp4',
-      thumbUrl: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?q=80&w=1200',
-      category: 'Negotiation',
-      tags: ['sales', 'negotiation', 'ceo'],
-      isFree: false,
-      price: 20,
-    },
-    {
-      title: 'Camera Confidence in 10 Minutes',
-      description: 'On-camera posture, framing, and tone for social media.',
-      url: 'https://example.com/video4.mp4',
-      thumbUrl: 'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?q=80&w=1200',
-      category: 'Branding',
-      tags: ['camera', 'confidence', 'social'],
-      isFree: true,
-      price: 0,
-    },
-  ]
-
-  // upsert by (title) for idempotency
-  const results = []
-  for (const v of demos) {
-    const existing = await prisma.video.findFirst({ where: { title: v.title } })
-    if (existing) {
-      const upd = await prisma.video.update({
-        where: { id: existing.id },
-        data: {
-          description: v.description,
-          url: v.url,
-          thumbUrl: v.thumbUrl,
-          category: v.category,
-          tags: v.tags,
-          isFree: v.isFree,
-          price: v.price,
-        },
-      })
-      results.push({ id: upd.id, title: upd.title, updated: true })
-    } else {
-      const created = await prisma.video.create({ data: v })
-      results.push({ id: created.id, title: created.title, created: true })
-    }
+type Body = {
+  video?: {
+    title?: string
+    description?: string
+    url?: string
+    isFree?: boolean
+    price?: number
+    thumbUrl?: string | null
+    category?: string | null
+    code?: string | null
+    tags?: string[] | string | null
   }
+}
 
-  return NextResponse.json({ ok: true, results })
+async function getAdmin() {
+  const token = cookies().get(COOKIE)?.value || ''
+  if (!token) return null
+  try {
+    const s = verifySession<{ userId: number }>(token)
+    if (!s?.userId) return null
+    const u = await prisma.user.findUnique({
+      where: { id: s.userId },
+      select: { id: true, isAdmin: true },
+    })
+    return u && u.isAdmin ? u : null
+  } catch {
+    return null
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const admin = await getAdmin()
+    if (!admin) {
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized: admin only' },
+        { status: 401 }
+      )
+    }
+
+    const body = (await req.json().catch(() => ({}))) as Body
+    const v = body?.video || {}
+
+    // Validate
+    const title = (v.title || '').trim()
+    const url = (v.url || '').trim()
+    if (!title) {
+      return NextResponse.json(
+        { ok: false, error: "Title (sarlavha) is required" },
+        { status: 400 }
+      )
+    }
+    if (!url) {
+      return NextResponse.json(
+        { ok: false, error: "URL is required (video url or file_id:...)" },
+        { status: 400 }
+      )
+    }
+
+    // Normalize
+    const description = (v.description || '').trim()
+    const isFree = !!v.isFree
+    const price = Number.isFinite(v?.price as number) ? Number(v?.price) : 0
+    const thumbUrl = (v.thumbUrl || null) as string | null
+    const category = (v.category || null) as string | null
+    const code = (v.code || null) as string | null
+    let tags: string[] = []
+    if (Array.isArray(v.tags)) {
+      tags = v.tags.map(s => String(s).trim()).filter(Boolean)
+    } else if (typeof v.tags === 'string') {
+      tags = v.tags.split(',').map(s => s.trim()).filter(Boolean)
+    }
+
+    const item = await prisma.video.create({
+      data: { title, description, url, isFree, price, thumbUrl, category, code, tags },
+      select: { id: true },
+    })
+
+    return NextResponse.json({ ok: true, id: item.id })
+  } catch (e: any) {
+    return NextResponse.json(
+      { ok: false, error: String(e?.message || e) },
+      { status: 500 }
+    )
+  }
 }
