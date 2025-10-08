@@ -20,7 +20,10 @@ function isYandexLink(url: string | null | undefined) {
   if (!url) return false
   return url.includes('disk.yandex') || url.includes('yadi.sk')
 }
-
+function isTelegramFile(url: string | null | undefined) {
+  if (!url) return false
+  return url.includes('api.telegram.org/file') || url.includes('telegram-cdn.org')
+}
 async function resolveYandex(url: string): Promise<string> {
   try {
     const r = await fetch(`/api/yandex/resolve?url=${encodeURIComponent(url)}`)
@@ -28,6 +31,9 @@ async function resolveYandex(url: string): Promise<string> {
     if (j?.ok && j?.href) return j.href as string
   } catch {}
   return url
+}
+function proxied(src: string) {
+  return `/api/proxy-media?src=${encodeURIComponent(src)}`
 }
 
 export default function VideoPage({ params }: { params: { id: string } }) {
@@ -38,8 +44,8 @@ export default function VideoPage({ params }: { params: { id: string } }) {
   const [status, setStatus] = useState<'idle' | 'playing' | 'needbuy' | 'free'>('idle')
   const [error, setError] = useState<string>('')
 
-  const [playUrl, setPlayUrl] = useState<string>('')   // resolved video src
-  const [thumbUrl, setThumbUrl] = useState<string>('') // resolved poster src
+  const [playUrl, setPlayUrl] = useState<string>('')   // resolved &/or proxied video src
+  const [thumbUrl, setThumbUrl] = useState<string>('') // resolved &/or proxied poster src
 
   async function refreshMe() {
     try { const j = await fetch('/api/me').then((r) => r.json()); setMe(j) } catch {}
@@ -62,18 +68,23 @@ export default function VideoPage({ params }: { params: { id: string } }) {
         setMe(meRes || null)
         if (!v) return
 
-        // Resolve sources
-        if (isYandexLink(v.url)) {
-          resolveYandex(v.url).then((href) => !cancelled && setPlayUrl(href))
+        // Resolve Yandex → direct href
+        let src = v.url
+        if (isYandexLink(src)) src = await resolveYandex(src)
+
+        // Proxy Telegram & Yandex through our server for proper CORS/Range
+        if (isTelegramFile(src) || isYandexLink(src)) {
+          setPlayUrl(proxied(src))
         } else {
-          setPlayUrl(v.url)
+          setPlayUrl(src)
         }
-        if (v.thumbUrl) {
-          if (isYandexLink(v.thumbUrl)) {
-            resolveYandex(v.thumbUrl).then((href) => !cancelled && setThumbUrl(href))
-          } else {
-            setThumbUrl(v.thumbUrl)
-          }
+
+        // Poster (thumb) – proxy if Yandex/Telegram
+        let poster = v.thumbUrl || ''
+        if (poster) {
+          if (isYandexLink(poster)) poster = await resolveYandex(poster)
+          if (isTelegramFile(poster) || isYandexLink(poster)) poster = proxied(poster)
+          setThumbUrl(poster)
         } else {
           setThumbUrl('')
         }
@@ -108,7 +119,7 @@ export default function VideoPage({ params }: { params: { id: string } }) {
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
-      {/* Video player katta joyda */}
+      {/* Katta video player */}
       <div
         style={{
           aspectRatio: '16 / 9',
@@ -126,7 +137,6 @@ export default function VideoPage({ params }: { params: { id: string } }) {
             playsInline
             preload="metadata"
             poster={thumbUrl || undefined}
-            crossOrigin="anonymous"
           />
         ) : (
           <div
@@ -147,7 +157,7 @@ export default function VideoPage({ params }: { params: { id: string } }) {
         )}
       </div>
 
-      {/* Ma'lumotlar va harakatlar – pastda */}
+      {/* Ma'lumotlar va tugmalar */}
       <div>
         <h1 style={{ fontWeight: 800, fontSize: 24 }}>{video.title}</h1>
         <p style={{ opacity: 0.85, marginTop: 6 }}>{video.description}</p>
