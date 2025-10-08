@@ -1,37 +1,61 @@
 // app/tg/page.tsx
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
-/**
- * This page is opened as Telegram WebApp (or normal web).
- * If ?ref=<code> is present, we keep it and send it along during webapp auth.
- * Your Telegram webapp init code on the client can POST to /api/auth/telegram/webapp
- * with tgId/username/displayName and the stored ref code.
- */
+declare global {
+  interface Window {
+    Telegram?: any
+  }
+}
+
+function getRef(): string {
+  try {
+    const u = new URL(window.location.href)
+    const fromUrl = u.searchParams.get('ref')
+    if (fromUrl) {
+      localStorage.setItem('uzvh_ref', fromUrl)
+      return fromUrl
+    }
+    return localStorage.getItem('uzvh_ref') || ''
+  } catch {
+    return ''
+  }
+}
 
 export default function TgGate() {
-  const [msg, setMsg] = useState('Yuklanmoqda...')
-  const [ok, setOk] = useState<boolean>(false)
-
   useEffect(() => {
-    try {
-      const u = new URL(window.location.href)
-      const ref = u.searchParams.get('ref')
-      if (ref) localStorage.setItem('uzvh_ref', ref)
-      setOk(true)
-      setMsg('Telegram ilovasi ishga tushdi.')
-    } catch {
-      setMsg('Xatolik.')
-    }
+    ;(async () => {
+      try {
+        const ref = getRef()
+
+        // If opened inside Telegram WebApp — authenticate then go to home
+        const wu = window.Telegram?.WebApp?.initDataUnsafe?.user
+        if (wu?.id) {
+          const tgId = String(wu.id)
+          const username = wu.username || null
+          const displayName = [wu.first_name, wu.last_name].filter(Boolean).join(' ') || null
+
+          await fetch('/api/auth/telegram/webapp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tgId, username, displayName, ref }),
+          }).catch(() => {})
+
+          // Always go to main page after auth
+          window.location.replace('/')
+          return
+        }
+
+        // If NOT inside Telegram (opened in normal browser), just go home
+        window.location.replace('/')
+      } catch {
+        // Even on error, push to home so user sees videos
+        window.location.replace('/')
+      }
+    })()
   }, [])
 
-  return (
-    <div style={{ display: 'grid', gap: 12 }}>
-      <h1 style={{ fontWeight: 800, fontSize: 22 }}>Telegram</h1>
-      <div>{msg}</div>
-      <a href="/" style={{ color: '#ff9900' }}>Bosh sahifaga qaytish</a>
-      {ok ? <small style={{ opacity: 0.7 }}>Agar siz havola orqali kelgan bo‘lsangiz, referral kodi saqlandi.</small> : null}
-    </div>
-  )
+  // Nothing is rendered; this page immediately redirects.
+  return null
 }
