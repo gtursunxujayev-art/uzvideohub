@@ -15,7 +15,7 @@ function largestPhoto(photos: any[] | undefined) {
   return photos.reduce((a, b) => ((a.width || 0) * (a.height || 0) > (b.width || 0) * (b.height || 0) ? a : b))
 }
 
-function openAppButton(url: string) {
+function webAppBtn(url: string) {
   return { reply_markup: { inline_keyboard: [[{ text: 'UzvideoHub — veb ilovani oching', web_app: { url } }]] } }
 }
 
@@ -30,17 +30,16 @@ export async function POST(req: Request) {
     const isAdmin = ADMIN_TELEGRAM_IDS.includes(fromId)
     const text = (msg.text || '').trim()
 
-    // /start and /start ref_CODE → just open the webapp (no extra lines)
+    // Always respond to /start with the WebApp button (pass ref if present)
     if (text.startsWith('/start')) {
       const m = text.match(/^\/start\s+ref_(\S+)/)
       const code = m?.[1]
-      const deepUrl = code ? `${SITE}/tg?ref=${encodeURIComponent(code)}` : `${SITE}/tg`
-      await sendMessage(chatId, ' ', openAppButton(deepUrl)) // send only button
+      const url = code ? `${SITE}/tg?ref=${encodeURIComponent(code)}` : `${SITE}/tg`
+      await sendMessage(chatId, 'UzvideoHub — veb ilovani oching', webAppBtn(url))
       return NextResponse.json({ ok: true })
     }
 
-    // MEDIA handling:
-    // Admins get file links; others get only WebApp button
+    // Media handling:
     const video = msg.video || (msg.document?.mime_type?.startsWith?.('video/') ? msg.document : null)
     const photo = largestPhoto(msg.photo) || (msg.document?.mime_type?.startsWith?.('image/') ? msg.document : null)
 
@@ -66,18 +65,18 @@ ${f.url}
           await sendMessage(chatId, `❌ Faylni olishda xatolik: ${String(e?.message || e)}`)
         }
       } else {
-        await sendMessage(chatId, ' ', openAppButton(`${SITE}/tg`))
+        await sendMessage(chatId, 'UzvideoHub — veb ilovani oching', webAppBtn(`${SITE}/tg`))
       }
       return NextResponse.json({ ok: true })
     }
 
-    // For other texts: keep quiet or show minimal help once
+    // /help → just show button (no extra spam)
     if (text === '/help') {
-      await sendMessage(chatId, ' ', openAppButton(`${SITE}/tg`))
+      await sendMessage(chatId, 'UzvideoHub — veb ilovani oching', webAppBtn(`${SITE}/tg`))
       return NextResponse.json({ ok: true })
     }
 
-    // Default: no spam
+    // Default: be silent
     return NextResponse.json({ ok: true })
   } catch (e) {
     console.error('Webhook error', e)
