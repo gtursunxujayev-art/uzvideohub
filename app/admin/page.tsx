@@ -4,6 +4,14 @@
 import { useEffect, useState } from 'react'
 import '../globals.css'
 
+type User = {
+  id: number
+  username: string | null
+  name: string | null
+  coins: number
+  isAdmin: boolean
+}
+
 type Video = {
   id: number
   code?: string | null
@@ -18,32 +26,72 @@ type Video = {
 }
 
 export default function AdminPage() {
+  const [users, setUsers] = useState<User[]>([])
   const [list, setList] = useState<Video[]>([])
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string>('')
 
-  const [newV, setNewV] = useState<Partial<Video>>({
-    isFree: false,
-    price: 0,
-  })
+  // coins form
+  const [targetUserId, setTargetUserId] = useState<number | ''>('')
+  const [amount, setAmount] = useState<string>('')
+
+  // create/edit video
+  const [newV, setNewV] = useState<Partial<Video>>({ isFree: false, price: 0 })
   const [edit, setEdit] = useState<Partial<Video> & { id?: number }>({})
 
-  const load = async () => {
+  const loadUsers = async () => {
+    try {
+      const r = await fetch('/api/admin/users', { cache: 'no-store' })
+      const j = await r.json()
+      if (!r.ok || !j?.ok) throw new Error(j?.error || 'Foydalanuvchilarni yuklashda xatolik')
+      setUsers(j.items || [])
+    } catch (e: any) {
+      setUsers([])
+      setErr(String(e?.message || e))
+    }
+  }
+
+  const loadVideos = async () => {
     setErr('')
     try {
-      // NOTE: load from the new admin endpoint (no shaping/filtering)
       const r = await fetch('/api/admin/videos', { cache: 'no-store' })
       const j = await r.json()
-      if (!r.ok || !j?.ok || !Array.isArray(j.items)) {
-        throw new Error(j?.error || 'Yuklab bo‘lmadi')
-      }
+      if (!r.ok || !j?.ok || !Array.isArray(j.items)) throw new Error(j?.error || 'Yuklab bo‘lmadi')
       setList(j.items)
     } catch (e: any) {
       setErr(String(e?.message || e))
       setList([])
     }
   }
-  useEffect(() => { load() }, [])
+
+  useEffect(() => {
+    loadUsers()
+    loadVideos()
+  }, [])
+
+  const giveCoins = async () => {
+    if (!targetUserId) return alert('Foydalanuvchini tanlang')
+    const amt = parseInt(amount, 10)
+    if (!Number.isFinite(amt) || amt === 0) return alert('Miqdor 0 bo‘la olmaydi')
+
+    setLoading(true)
+    try {
+      const r = await fetch('/api/admin/coins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: targetUserId, amount: amt }),
+      })
+      const j = await r.json()
+      if (!r.ok || !j?.ok) throw new Error(j?.error || 'Tangalarni berishda xatolik')
+      alert(`✅ Berildi. Yangi balans: ${j.user?.coins}`)
+      setAmount('')
+      await loadUsers()
+    } catch (e: any) {
+      alert('❌ ' + String(e?.message || e))
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const create = async () => {
     setLoading(true)
@@ -57,7 +105,7 @@ export default function AdminPage() {
       const j = await r.json().catch(() => ({}))
       if (!r.ok || !j?.ok) throw new Error(j?.error || 'Create failed')
       setNewV({ isFree: false, price: 0 })
-      await load() // <- refresh from admin endpoint
+      await loadVideos()
       alert('✅ Video qo‘shildi!')
     } catch (e: any) {
       setErr(String(e?.message || e))
@@ -83,7 +131,7 @@ export default function AdminPage() {
       const j = await r.json().catch(() => ({}))
       if (!r.ok || !j?.ok) throw new Error(j?.error || 'Update failed')
       setEdit({})
-      await load()
+      await loadVideos()
       alert('✅ Saqlandi')
     } catch (e: any) {
       setErr(String(e?.message || e))
@@ -100,7 +148,7 @@ export default function AdminPage() {
       const r = await fetch(`/api/admin/videos/${id}`, { method: 'DELETE' })
       const j = await r.json().catch(() => ({}))
       if (!r.ok || !j?.ok) throw new Error(j?.error || 'Delete failed')
-      await load()
+      await loadVideos()
     } catch (e: any) {
       alert('❌ Xatolik: ' + String(e?.message || e))
     } finally {
@@ -114,7 +162,41 @@ export default function AdminPage() {
 
       {err && <div className="section" style={{ color: '#ffb4b4' }}>Xatolik: {err}</div>}
 
-      {/* Create */}
+      {/* COINS SECTION */}
+      <div className="section" style={{ display: 'grid', gap: 10 }}>
+        <div style={{ fontWeight: 700 }}>Tangalarni berish</div>
+        <div style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 160px 120px' }}>
+          <select
+            value={targetUserId}
+            onChange={(e) => setTargetUserId(e.target.value ? Number(e.target.value) : '')}
+            style={{ padding: 10, borderRadius: 10, background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)' }}
+          >
+            <option value="">Foydalanuvchini tanlang</option>
+            {users.map(u => (
+              <option key={u.id} value={u.id}>
+                {(u.username ? '@' + u.username : u.name || `ID ${u.id}`)} • {u.coins} tanga {u.isAdmin ? '• ADMIN' : ''}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="number"
+            placeholder="Miqdor"
+            value={amount}
+            onChange={e => setAmount(e.target.value)}
+            style={{ padding: 10, borderRadius: 10, background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)' }}
+          />
+
+          <button className="btn" disabled={loading || !targetUserId || !amount} onClick={giveCoins}>
+            Berish
+          </button>
+        </div>
+        <div style={{ fontSize: 12, opacity: 0.75 }}>
+          * Musbat son berilsa — qo‘shiladi. Manfiy son berilsa — ayriladi. Masalan, -5 foydalanuvchidan 5 tanga ayiradi.
+        </div>
+      </div>
+
+      {/* CREATE VIDEO */}
       <div className="section form-grid">
         <div style={{ fontWeight: 700 }}>Yangi video qo‘shish</div>
         <input placeholder="Kod (masalan: 013)" value={newV.code || ''} onChange={e => setNewV({ ...newV, code: e.target.value })} />
@@ -131,7 +213,7 @@ export default function AdminPage() {
         <button className="btn" disabled={loading} onClick={create}>Qo‘shish</button>
       </div>
 
-      {/* List */}
+      {/* LIST VIDEOS */}
       <div style={{ display: 'grid', gap: 12 }}>
         {list.map(v => {
           const isEditing = edit.id === v.id
