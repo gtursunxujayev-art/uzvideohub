@@ -1,7 +1,8 @@
 // app/layout.tsx
 import './globals.css'
-import Link from 'next/link'
 import type { ReactNode } from 'react'
+import Link from 'next/link'
+import Nav from '@/src/components/Nav'
 
 export const metadata = {
   title: 'uzvideohub',
@@ -35,13 +36,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <Link href="/" style={{ fontWeight: 900, color: '#ff9900' }}>
               uzvideohub
             </Link>
-            <nav style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
-              <Link href="/">Bosh sahifa</Link>
-              <Link href="/library">Kutubxona</Link>
-              <Link href="/admin">Admin</Link>
-              <Link href="/tg">Telegram</Link>
-              <Link href="/profile">Profil</Link>
-            </nav>
+            <Nav />
           </div>
         </header>
         <main style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 16px' }}>
