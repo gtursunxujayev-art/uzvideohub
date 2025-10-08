@@ -3,7 +3,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import './globals.css'
 
 type Video = {
   id: number
@@ -17,7 +16,7 @@ type Video = {
   category?: string | null
   tags: string[]
 }
-type ApiRes = { ok: boolean; total: number; page: number; limit: number; items: Video[] }
+type ApiRes = { ok: boolean; total: number; page: number; limit: number; items: Video[]; error?: string }
 
 export default function Home() {
   const [q, setQ] = useState('')
@@ -25,6 +24,7 @@ export default function Home() {
   const [tag, setTag] = useState('')
   const [sort, setSort] = useState<'newest' | 'price_asc' | 'price_desc' | 'title'>('newest')
   const [data, setData] = useState<ApiRes>({ ok: true, total: 0, page: 1, limit: 24, items: [] })
+  const [err, setErr] = useState('')
 
   const params = useMemo(() => {
     const u = new URLSearchParams()
@@ -35,17 +35,29 @@ export default function Home() {
     return u.toString()
   }, [q, category, tag, sort])
 
-  const load = async () => {
-    const r = await fetch('/api/videos?' + params, { cache: 'no-store' })
-    const j = await r.json()
-    setData(j)
-  }
-  useEffect(() => { load() }, [params])
+  useEffect(() => {
+    let stop = false
+    ;(async () => {
+      try {
+        setErr('')
+        const r = await fetch('/api/videos?' + params, { cache: 'no-store' })
+        const j: ApiRes = await r.json()
+        if (!r.ok || !j?.ok) throw new Error(j?.error || 'Load failed')
+        if (!stop) setData(j)
+      } catch (e: any) {
+        if (!stop) {
+          setErr(String(e?.message || e))
+          setData({ ok: false, total: 0, page: 1, limit: 24, items: [], error: String(e?.message || e) })
+        }
+      }
+    })()
+    return () => { stop = true }
+  }, [params])
 
   const categories = Array.from(new Set(data.items.map(v => v.category).filter(Boolean))) as string[]
 
   return (
-    <div className="container" style={{ display: 'grid', gap: 14 }}>
+    <div style={{ display: 'grid', gap: 14 }}>
       <h1 style={{ fontWeight: 800, fontSize: 22, margin: 0 }}>So‘nggi videolar</h1>
 
       <div className="section filters">
@@ -76,6 +88,8 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {err && <div className="section" style={{ color: '#ffb4b4' }}>Xatolik: {err}</div>}
 
       <div className="grid-cards">
         {data.items.map(v => (
