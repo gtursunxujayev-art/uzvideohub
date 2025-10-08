@@ -9,18 +9,20 @@ datasource db {
 }
 
 model User {
-  id            Int               @id @default(autoincrement())
-  telegramId    String            @unique
-  username      String?
-  name          String?
-  coins         Int               @default(0)
-  isAdmin       Boolean           @default(false)
-  createdAt     DateTime          @default(now())
-
-  purchases     Purchase[]
-  coinTxns      CoinTransaction[] @relation("UserCoinTxns")
-  adminCoinTxns CoinTransaction[] @relation("AdminCoinTxns")
+  id           Int       @id @default(autoincrement())
+  telegramId   String?   @unique
+  username     String?
+  displayName  String?
+  coins        Int       @default(0)
+  isAdmin      Boolean   @default(false)
+  referredById Int?
+  referredBy   User?     @relation("UserReferrals", fields: [referredById], references: [id])
+  referrals    User[]    @relation("UserReferrals")
+  videos       Purchase[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
+
 
 model Video {
   id          Int        @id @default(autoincrement())
