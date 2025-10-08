@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import '../globals.css'
 
 type Video = {
   id: number
@@ -23,31 +24,39 @@ export default function VideoPage() {
 
   useEffect(() => {
     ;(async () => {
-      const r = await fetch('/api/videos?limit=1&code=&q=&sort=newest')
-      // In your existing code you likely fetch by id via a separate route.
-      // If you already have /api/videos/[id], use that instead:
-      const v = await fetch(`/api/videos?id=${params.id}`).then(res => res.json()).catch(() => null)
-      setVideo(v?.item || null)
+      const r = await fetch('/api/videos?id=' + params.id, { cache: 'no-store' }).then(res => res.json()).catch(() => null)
+      setVideo(r?.item || null)
     })()
   }, [params.id])
 
-  if (!video) return <div>Yuklanmoqda...</div>
+  if (!video) return <div className="container">Yuklanmoqda...</div>
 
   return (
-    <div style={{ display: 'grid', gap: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-        <h1 style={{ fontWeight: 800, fontSize: 24, margin: 0 }}>{video.title}</h1>
+    <div className="container" style={{ display: 'grid', gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+        <h1 style={{ fontWeight: 800, fontSize: 22, margin: 0 }}>{video.title}</h1>
         {video.code ? <span style={{ opacity: 0.7, fontSize: 14 }}>#{video.code}</span> : null}
       </div>
 
-      <div style={{ aspectRatio: '16 / 9', background: 'rgba(255,255,255,0.06)', borderRadius: 12, overflow: 'hidden' }}>
-        {/* your existing player logic applies here */}
-        <div style={{ padding: 12, fontSize: 13, opacity: 0.8 }}>Video player joyi</div>
-      </div>
+      {/* Responsive: the player section stacks on mobile */}
+      <div style={{
+        display: 'grid',
+        gap: 14,
+        gridTemplateColumns: '1fr',
+      }}>
+        <div className="card" style={{ overflow: 'hidden' }}>
+          <div className="thumb">
+            {/* Replace with your actual player (video tag or iframe) */}
+            <div style={{ padding: 12, fontSize: 13, opacity: 0.8 }}>Video player joyi</div>
+          </div>
+        </div>
 
-      <div style={{ opacity: 0.9 }}>{video.description}</div>
-      <div style={{ opacity: 0.8, fontSize: 13 }}>
-        {(video.category || '')} {video.tags?.length ? `• ${video.tags.join(', ')}` : ''}
+        <div className="section" style={{ display: 'grid', gap: 8 }}>
+          <div style={{ opacity: 0.9 }}>{video.description}</div>
+          <div style={{ opacity: 0.8, fontSize: 13 }}>
+            {(video.category || '')} {video.tags?.length ? `• ${video.tags.join(', ')}` : ''}
+          </div>
+        </div>
       </div>
     </div>
   )
