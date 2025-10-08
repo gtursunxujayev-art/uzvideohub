@@ -20,10 +20,20 @@ function isYandexLink(url: string | null | undefined) {
   if (!url) return false
   return url.includes('disk.yandex') || url.includes('yadi.sk')
 }
-function isTelegramFile(url: string | null | undefined) {
+function isTelegramFileUrl(url: string | null | undefined) {
   if (!url) return false
   return url.includes('api.telegram.org/file') || url.includes('telegram-cdn.org')
 }
+// Detect a Telegram file_id entry
+function extractFileId(val: string | null | undefined): string | null {
+  if (!val) return null
+  let s = val.trim()
+  if (s.startsWith('file_id:')) s = s.slice('file_id:'.length)
+  // file_id charset is base64-like with _ and -, length typically > 50
+  if (!s.includes('://') && s.length > 30) return s
+  return null
+}
+
 async function resolveYandex(url: string): Promise<string> {
   try {
     const r = await fetch(`/api/yandex/resolve?url=${encodeURIComponent(url)}`)
@@ -31,9 +41,6 @@ async function resolveYandex(url: string): Promise<string> {
     if (j?.ok && j?.href) return j.href as string
   } catch {}
   return url
-}
-function proxied(src: string) {
-  return `/api/proxy-media?src=${encodeURIComponent(src)}`
 }
 
 export default function VideoPage({ params }: { params: { id: string } }) {
@@ -44,8 +51,8 @@ export default function VideoPage({ params }: { params: { id: string } }) {
   const [status, setStatus] = useState<'idle' | 'playing' | 'needbuy' | 'free'>('idle')
   const [error, setError] = useState<string>('')
 
-  const [playUrl, setPlayUrl] = useState<string>('')   // resolved/proxied video
-  const [thumbUrl, setThumbUrl] = useState<string>('') // resolved/proxied image
+  const [playUrl, setPlayUrl] = useState<string>('')   // final src for <video>
+  const [thumbUrl, setThumbUrl] = useState<string>('') // final poster src
 
   async function refreshMe() {
     try { const j = await fetch('/api/me').then((r) => r.json()); setMe(j) } catch {}
@@ -68,19 +75,36 @@ export default function VideoPage({ params }: { params: { id: string } }) {
         setMe(meRes || null)
         if (!v) return
 
-        // Resolve and proxy sources
-        let src = v.url
-        if (isYandexLink(src)) src = await resolveYandex(src)
-        if (isTelegramFile(src) || isYandexLink(src)) src = proxied(src)
-        setPlayUrl(src)
-
-        let poster = v.thumbUrl || ''
-        if (poster) {
-          if (isYandexLink(poster)) poster = await resolveYandex(poster)
-          if (isTelegramFile(poster) || isYandexLink(poster)) poster = proxied(poster)
+        // VIDEO SRC: order of handling
+        // 1) Telegram file_id → our streaming endpoint
+        const fid = extractFileId(v.url)
+        if (fid) {
+          setPlayUrl(`/api/telegram/file?file_id=${encodeURIComponent(fid)}`)
+        } else {
+          // 2) Yandex public page → resolve to direct href, still streamable
+          let src = v.url
+          if (isYandexLink(src)) src = await resolveYandex(src)
+          if (isTelegramFileUrl(src)) {
+            // if someone pasted a full telegram file URL, it may 404 later — but try it anyway via direct
+            setPlayUrl(src) // our <video> can still play it if Telegram accepts
+          } else {
+            setPlayUrl(src)
+          }
         }
-        setThumbUrl(poster)
 
+        // POSTER/THUMB
+        const tFid = extractFileId(v.thumbUrl || '')
+        if (tFid) {
+          setThumbUrl(`/api/telegram/file?file_id=${encodeURIComponent(tFid)}`)
+        } else if (v.thumbUrl) {
+          let poster = v.thumbUrl
+          if (isYandexLink(poster)) poster = await resolveYandex(poster)
+          setThumbUrl(poster)
+        } else {
+          setThumbUrl('')
+        }
+
+        // ACCESS
         if (v.isFree || v.price === 0) setStatus('free')
         else {
           const owned = await checkOwned(id)
