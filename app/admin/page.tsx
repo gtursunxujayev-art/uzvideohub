@@ -2,6 +2,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import '../app/globals.css'
 
 type Video = {
   id: number
@@ -19,7 +20,6 @@ type Video = {
 export default function AdminPage() {
   const [list, setList] = useState<Video[]>([])
   const [loading, setLoading] = useState(false)
-
   const [newV, setNewV] = useState<Partial<Video>>({ isFree: false, price: 0 })
   const [edit, setEdit] = useState<Partial<Video> & { id?: number }>({})
 
@@ -28,7 +28,6 @@ export default function AdminPage() {
     const j = await r.json()
     setList(j.items || [])
   }
-
   useEffect(() => { load() }, [])
 
   const create = async () => {
@@ -42,9 +41,7 @@ export default function AdminPage() {
       await r.json()
       setNewV({ isFree: false, price: 0 })
       await load()
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   const save = async (id: number) => {
@@ -54,17 +51,14 @@ export default function AdminPage() {
       if (typeof payload.tags === 'string') {
         payload.tags = payload.tags.split(',').map((s: string) => s.trim()).filter(Boolean)
       }
-      const r = await fetch(`/api/admin/videos/${id}`, {
+      await fetch(`/api/admin/videos/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
-      await r.json()
       setEdit({})
       await load()
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   const remove = async (id: number) => {
@@ -73,18 +67,16 @@ export default function AdminPage() {
     try {
       await fetch(`/api/admin/videos/${id}`, { method: 'DELETE' })
       await load()
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   return (
-    <div style={{ display: 'grid', gap: 24 }}>
-      <h1 style={{ fontWeight: 800, fontSize: 24 }}>Admin</h1>
+    <div className="container" style={{ display: 'grid', gap: 14 }}>
+      <h1 style={{ fontWeight: 800, fontSize: 22, margin: 0 }}>Admin</h1>
 
       {/* Create */}
-      <div style={{ background: 'rgba(255,255,255,0.06)', padding: 16, borderRadius: 12, display: 'grid', gap: 8 }}>
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>Yangi video qo‘shish</div>
+      <div className="section form-grid">
+        <div style={{ fontWeight: 700 }}>Yangi video qo‘shish</div>
         <input placeholder="Kod (masalan: 013)" value={newV.code || ''} onChange={e => setNewV({ ...newV, code: e.target.value })} />
         <input placeholder="Sarlavha" value={newV.title || ''} onChange={e => setNewV({ ...newV, title: e.target.value })} />
         <textarea placeholder="Tavsif" value={newV.description || ''} onChange={e => setNewV({ ...newV, description: e.target.value })} />
@@ -92,11 +84,11 @@ export default function AdminPage() {
         <input placeholder="Kategoriya (ixtiyoriy)" value={newV.category || ''} onChange={e => setNewV({ ...newV, category: e.target.value })} />
         <input placeholder="Teglar (vergul bilan)" value={(newV.tags as any) || ''} onChange={e => setNewV({ ...newV, tags: e.target.value as any })} />
         <input placeholder="Video URL yoki file_id:..." value={newV.url || ''} onChange={e => setNewV({ ...newV, url: e.target.value })} />
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <label><input type="checkbox" checked={!!newV.isFree} onChange={e => setNewV({ ...newV, isFree: e.target.checked })} /> Bepul</label>
           <input type="number" placeholder="Narx (tanga)" value={newV.price || 0} onChange={e => setNewV({ ...newV, price: parseInt(e.target.value || '0', 10) })} />
         </div>
-        <button disabled={loading} onClick={create}>Qo‘shish</button>
+        <button className="btn" disabled={loading} onClick={create}>Qo‘shish</button>
       </div>
 
       {/* List */}
@@ -104,19 +96,17 @@ export default function AdminPage() {
         {list.map(v => {
           const isEditing = edit.id === v.id
           return (
-            <div key={v.id} style={{ background: 'rgba(255,255,255,0.06)', padding: 16, borderRadius: 12, display: 'grid', gap: 8 }}>
+            <div key={v.id} className="section" style={{ display: 'grid', gap: 8 }}>
               {!isEditing ? (
                 <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                    <div>
-                      <div style={{ fontWeight: 700 }}>{v.title}</div>
-                      <div style={{ opacity: 0.8, fontSize: 13 }}>
-                        {v.code ? `Kod: ${v.code} • ` : ''}{v.category || 'Kategoriya yo‘q'} • {v.isFree ? 'Bepul' : `${v.price} tanga`}
-                      </div>
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    <div style={{ fontWeight: 700 }}>{v.title}</div>
+                    <div style={{ opacity: 0.8, fontSize: 13 }}>
+                      {v.code ? `Kod: ${v.code} • ` : ''}{v.category || 'Kategoriya yo‘q'} • {v.isFree ? 'Bepul' : `${v.price} tanga`}
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => setEdit(v)}>Tahrirlash</button>
-                      <button onClick={() => remove(v.id)}>O‘chirish</button>
+                    <div className="actions">
+                      <button className="btn" onClick={() => setEdit(v)}>Tahrirlash</button>
+                      <button className="btn" onClick={() => remove(v.id)}>O‘chirish</button>
                     </div>
                   </div>
                 </>
@@ -129,13 +119,13 @@ export default function AdminPage() {
                   <input placeholder="Kategoriya (ixtiyoriy)" defaultValue={v.category || ''} onChange={e => setEdit({ ...edit, category: e.target.value })} />
                   <input placeholder="Teglar (vergul bilan)" defaultValue={v.tags?.join(', ') || ''} onChange={e => setEdit({ ...edit, tags: e.target.value as any })} />
                   <input placeholder="Video URL yoki file_id:..." defaultValue={v.url} onChange={e => setEdit({ ...edit, url: e.target.value })} />
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                     <label><input type="checkbox" defaultChecked={v.isFree} onChange={e => setEdit({ ...edit, isFree: e.target.checked })} /> Bepul</label>
                     <input type="number" placeholder="Narx (tanga)" defaultValue={v.price} onChange={e => setEdit({ ...edit, price: parseInt(e.target.value || '0', 10) })} />
                   </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button disabled={loading} onClick={() => save(v.id)}>Saqlash</button>
-                    <button onClick={() => setEdit({})}>Bekor qilish</button>
+                  <div className="actions">
+                    <button className="btn" disabled={loading} onClick={() => save(v.id)}>Saqlash</button>
+                    <button className="btn" onClick={() => setEdit({})}>Bekor qilish</button>
                   </div>
                 </>
               )}
