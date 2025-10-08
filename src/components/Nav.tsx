@@ -1,33 +1,34 @@
 // src/components/Nav.tsx
-'use client'
-
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { cookies } from 'next/headers'
+import { verifySession } from '@/src/lib/jwt'
+import { prisma } from '@/src/lib/db'
 
-type Me = { user: { isAdmin?: boolean } | null }
+const COOKIE = process.env.SESSION_COOKIE || 'uzvideohub_session'
 
-export default function Nav() {
-  const [isAdmin, setIsAdmin] = useState<boolean>(false)
+export default async function Nav() {
+  const token = cookies().get(COOKIE)?.value || ''
+  let isAdmin = false
 
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const r = await fetch('/api/me', { cache: 'no-store' })
-        const j: Me = await r.json()
-        if (!cancelled) setIsAdmin(!!j?.user?.isAdmin)
-      } catch {
-        if (!cancelled) setIsAdmin(false)
+  if (token) {
+    try {
+      const s = verifySession<{ userId: number }>(token)
+      if (s?.userId) {
+        const u = await prisma.user.findUnique({
+          where: { id: s.userId },
+          select: { isAdmin: true },
+        })
+        isAdmin = !!u?.isAdmin
       }
-    })()
-    return () => { cancelled = true }
-  }, [])
+    } catch {
+      isAdmin = false
+    }
+  }
 
   return (
     <nav style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
       <Link href="/">Bosh sahifa</Link>
       <Link href="/library">Kutubxona</Link>
-      {/* Only admins see these two links */}
       {isAdmin && <Link href="/admin">Admin</Link>}
       {isAdmin && <Link href="/tg">Telegram</Link>}
       <Link href="/profile">Profil</Link>
