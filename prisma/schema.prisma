@@ -30,7 +30,7 @@ model User {
   adminCoinTxns    CoinTransaction[] @relation("AdminCoinTxns")
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @updatedAt @default(now())
 }
 
 model Video {
@@ -47,7 +47,7 @@ model Video {
   purchases   Purchase[]
 
   createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  updatedAt   DateTime  @updatedAt @default(now())
 }
 
 model Purchase {
