@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import '../globals.css'
+import '../../globals.css'
 
 type Video = {
   id: number
@@ -38,15 +38,10 @@ export default function VideoPage() {
         {video.code ? <span style={{ opacity: 0.7, fontSize: 14 }}>#{video.code}</span> : null}
       </div>
 
-      {/* Responsive: the player section stacks on mobile */}
-      <div style={{
-        display: 'grid',
-        gap: 14,
-        gridTemplateColumns: '1fr',
-      }}>
+      <div style={{ display: 'grid', gap: 14, gridTemplateColumns: '1fr' }}>
         <div className="card" style={{ overflow: 'hidden' }}>
           <div className="thumb">
-            {/* Replace with your actual player (video tag or iframe) */}
+            {/* Replace with actual player */}
             <div style={{ padding: 12, fontSize: 13, opacity: 0.8 }}>Video player joyi</div>
           </div>
         </div>
