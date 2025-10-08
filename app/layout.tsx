@@ -12,7 +12,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="uz">
       <body>
         <div className="container" style={{ display: 'grid', gap: 14 }}>
-          {/* @ts-expect-error Server Component */}
           <Nav />
           {children}
         </div>
