@@ -45,4 +45,3 @@ export default function Nav() {
     </header>
   )
 }
-```0
