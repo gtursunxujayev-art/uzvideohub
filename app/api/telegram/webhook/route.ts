@@ -5,10 +5,18 @@ import { NextResponse } from 'next/server'
 import { sendMessage, getFile } from '@/src/lib/telegramApi'
 
 const SITE = process.env.PUBLIC_SITE_URL || 'https://uzvideohub.vercel.app'
+const ADMIN_TELEGRAM_IDS = (process.env.ADMIN_TELEGRAM_IDS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
 
 function largestPhoto(photos: any[] | undefined) {
   if (!Array.isArray(photos) || photos.length === 0) return null
   return photos.reduce((a, b) => ((a.width || 0) * (a.height || 0) > (b.width || 0) * (b.height || 0) ? a : b))
+}
+
+function openAppButton(url: string) {
+  return { reply_markup: { inline_keyboard: [[{ text: 'UzvideoHub — veb ilovani oching', web_app: { url } }]] } }
 }
 
 export async function POST(req: Request) {
@@ -18,83 +26,58 @@ export async function POST(req: Request) {
     if (!msg?.chat?.id) return NextResponse.json({ ok: true })
 
     const chatId = msg.chat.id as number
+    const fromId = String(msg.from?.id || '')
+    const isAdmin = ADMIN_TELEGRAM_IDS.includes(fromId)
     const text = (msg.text || '').trim()
 
-    // 1) VIDEO sent/forwarded
-    const asVideo = msg.video || (msg.document?.mime_type?.startsWith?.('video/') ? msg.document : null)
-    if (asVideo?.file_id) {
-      try {
-        const f = await getFile(asVideo.file_id)
-        const reply =
-`🎞 Video aniqlandi.
-file_id: ${asVideo.file_id}
+    // /start and /start ref_CODE → just open the webapp (no extra lines)
+    if (text.startsWith('/start')) {
+      const m = text.match(/^\/start\s+ref_(\S+)/)
+      const code = m?.[1]
+      const deepUrl = code ? `${SITE}/tg?ref=${encodeURIComponent(code)}` : `${SITE}/tg`
+      await sendMessage(chatId, ' ', openAppButton(deepUrl)) // send only button
+      return NextResponse.json({ ok: true })
+    }
 
-To‘g‘ridan video havola:
+    // MEDIA handling:
+    // Admins get file links; others get only WebApp button
+    const video = msg.video || (msg.document?.mime_type?.startsWith?.('video/') ? msg.document : null)
+    const photo = largestPhoto(msg.photo) || (msg.document?.mime_type?.startsWith?.('image/') ? msg.document : null)
+
+    if (video?.file_id || photo?.file_id) {
+      if (isAdmin) {
+        const fileId = (video || photo).file_id as string
+        try {
+          const f = await getFile(fileId)
+          const isVid = !!video
+          const reply =
+`${isVid ? '🎞 Video' : '🖼 Rasm'} aniqlandi.
+file_id: ${fileId}
+
+To‘g‘ridan havola:
 ${f.url}
 
 👉 Admin panel:
-• "Video URL" maydoniga quyidagidan birini qo‘ying:
-   - file_id:${asVideo.file_id}  (tavsiya etiladi)
+• ${isVid ? '"Video URL"' : '"Poster/thumbnail URL"'} maydoniga quyidagidan birini qo‘ying:
+   - file_id:${fileId}  (tavsiya etiladi)
    - ${f.url}  (ham ishlaydi)`
-        await sendMessage(chatId, reply)
-      } catch (e: any) {
-        await sendMessage(chatId, `❌ Video aniqlashda xatolik: ${String(e?.message || e)}`)
+          await sendMessage(chatId, reply)
+        } catch (e: any) {
+          await sendMessage(chatId, `❌ Faylni olishda xatolik: ${String(e?.message || e)}`)
+        }
+      } else {
+        await sendMessage(chatId, ' ', openAppButton(`${SITE}/tg`))
       }
       return NextResponse.json({ ok: true })
     }
 
-    // 2) PHOTO sent/forwarded (photo array or image document)
-    const p = largestPhoto(msg.photo)
-    const asImageDoc = msg.document?.mime_type?.startsWith?.('image/') ? msg.document : null
-    const photoLike = p || asImageDoc
-    if (photoLike?.file_id) {
-      try {
-        const f = await getFile(photoLike.file_id)
-        const reply =
-`🖼 Rasm aniqlandi.
-file_id: ${photoLike.file_id}
-
-To‘g‘ridan rasm havola (poster/thumbnail uchun):
-${f.url}
-
-👉 Admin panel:
-• "Poster/thumbnail URL" maydoniga quyidagidan birini qo‘ying:
-   - file_id:${photoLike.file_id}  (tavsiya etiladi)
-   - ${f.url}  (ham ishlaydi)`
-        await sendMessage(chatId, reply)
-      } catch (e: any) {
-        await sendMessage(chatId, `❌ Rasm aniqlashda xatolik: ${String(e?.message || e)}`)
-      }
-      return NextResponse.json({ ok: true })
-    }
-
-    // 3) Commands
-    if (text === '/start' || text.startsWith('/start')) {
-      await sendMessage(
-        chatId,
-        'uzvideohub — veb-ilovani oching:',
-        { reply_markup: { inline_keyboard: [[{ text: 'Uzvideohub', web_app: { url: `${SITE}/tg` } }]] } }
-      )
-      return NextResponse.json({ ok: true })
-    }
-
+    // For other texts: keep quiet or show minimal help once
     if (text === '/help') {
-      await sendMessage(
-        chatId,
-`Yordam:
-— Videoni yoki rasmini shu botga yuboring/forward qiling — men sizga file_id va to‘g‘ridan havolani beraman.
-— Admin panelda:
-   • Video URL: file_id:XXXX YOKI to‘g‘ridan havola
-   • Poster URL: file_id:XXXX YOKI to‘g‘ridan havola
-
-Eslatma: t.me/<kanal>/<msg> havolasi orqali faylni olish imkoni yo‘q.
-Kanal postidan fayl olish uchun — xabarni botga forward qiling (yoki botni kanalga admin qilib qo‘ying va forward qiling).`
-      )
+      await sendMessage(chatId, ' ', openAppButton(`${SITE}/tg`))
       return NextResponse.json({ ok: true })
     }
 
-    // 4) Default
-    await sendMessage(chatId, 'Rasm yoki videoni yuboring/forward qiling — men sizga file_id va havolani yuboraman.')
+    // Default: no spam
     return NextResponse.json({ ok: true })
   } catch (e) {
     console.error('Webhook error', e)
