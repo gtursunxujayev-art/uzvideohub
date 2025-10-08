@@ -36,7 +36,7 @@ export default function Nav() {
         Hisob: {typeof me?.coins === 'number' ? me!.coins : 0}
       </div>
 
-      {/* Right: brand + links if needed */}
+      {/* Right: brand */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <Link href="/" style={{ textDecoration: 'none', color: 'inherit', fontWeight: 800 }}>
           UzvideoHub
