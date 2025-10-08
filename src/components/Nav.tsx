@@ -29,6 +29,7 @@ export default async function Nav() {
     <nav style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
       <Link href="/">Bosh sahifa</Link>
       <Link href="/library">Kutubxona</Link>
+      <Link href="/leaderboard">Reyting</Link>
       {isAdmin && <Link href="/admin">Admin</Link>}
       {isAdmin && <Link href="/tg">Telegram</Link>}
       <Link href="/profile">Profil</Link>
