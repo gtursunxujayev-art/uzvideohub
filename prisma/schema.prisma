@@ -11,7 +11,10 @@ datasource db {
 
 model User {
   id           Int      @id @default(autoincrement())
-  tgId         String?  @unique
+
+  // Map to existing DB column "telegramId" to avoid data-loss warning
+  tgId         String?  @unique @map("telegramId")
+
   name         String?
   username     String?
   displayName  String?
