@@ -16,4 +16,3 @@ export default function Error({
     </div>
   )
 }
-```0
