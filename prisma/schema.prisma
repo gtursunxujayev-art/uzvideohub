@@ -11,26 +11,22 @@ datasource db {
 
 model User {
   id           Int      @id @default(autoincrement())
-
-  // Map to existing DB column "telegramId" to avoid data-loss warning
   tgId         String?  @unique @map("telegramId")
-
   name         String?
   username     String?
   displayName  String?
   coins        Int      @default(0)
   isAdmin      Boolean  @default(false)
 
-  // Referrals
   referralCode     String? @unique
   referredByUserId Int?
   referredBy       User?   @relation("UserReferrer", fields: [referredByUserId], references: [id])
   referrals        User[]  @relation("UserReferrer")
 
-  // Relations
   purchases        Purchase[]
   coinTransactions CoinTransaction[] @relation("UserCoinTxns")
   adminCoinTxns    CoinTransaction[] @relation("AdminCoinTxns")
+  starPayments     StarPayment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt @default(now())
@@ -38,6 +34,9 @@ model User {
 
 model Video {
   id          Int       @id @default(autoincrement())
+  // New editable human code like "013", unique but optional
+  code        String?   @unique
+
   title       String
   description String
   url         String
@@ -76,4 +75,17 @@ model CoinTransaction {
 
   user   User  @relation(name: "UserCoinTxns",  fields: [userId],  references: [id])
   admin  User? @relation(name: "AdminCoinTxns", fields: [adminId], references: [id])
+}
+
+model StarPayment {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  tgId        String
+  chargeId    String   @unique
+  amountStars Int
+  coins       Int
+  payload     String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }
