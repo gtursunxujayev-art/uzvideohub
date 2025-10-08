@@ -6,7 +6,7 @@ import { prisma } from '@/src/lib/db'
 import { signSession } from '@/src/lib/jwt'
 
 /**
- * Body JSON (from your Telegram login flow):
+ * Body JSON:
  * {
  *   telegramId: string | number,
  *   username?: string,
@@ -14,7 +14,7 @@ import { signSession } from '@/src/lib/jwt'
  *   displayName?: string
  * }
  *
- * Note: Prisma schema uses `tgId` (mapped to DB column "telegramId").
+ * NOTE: Prisma field is `tgId` (mapped to DB column "telegramId").
  */
 
 const COOKIE = process.env.SESSION_COOKIE || 'uzvideohub_session'
@@ -27,9 +27,9 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}))
     const telegramId = String(body.telegramId || '')
-    const username = body.username || null
-    const name = body.name || null
-    const displayName = body.displayName || null
+    const username = (body.username ?? null) as string | null
+    const name = (body.name ?? null) as string | null
+    const displayName = (body.displayName ?? null) as string | null
 
     if (!telegramId) {
       return NextResponse.json({ ok: false, error: 'telegramId required' }, { status: 400 })
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
 
     const isAdmin = adminIds.includes(telegramId)
 
-    // ❗ Prisma field is tgId (mapped to DB column "telegramId")
+    // FIND by tgId (NOT telegramId)
     let user = await prisma.user.findUnique({
       where: { tgId: telegramId },
       select: {
@@ -47,6 +47,7 @@ export async function POST(req: Request) {
     })
 
     if (!user) {
+      // CREATE with tgId
       user = await prisma.user.create({
         data: {
           tgId: telegramId,
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
           name,
           displayName,
           isAdmin,
-          coins: 20, // welcome bonus (adjust as you like)
+          coins: 20,
         },
         select: {
           id: true, tgId: true, username: true, name: true, displayName: true,
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
         }
       })
     } else {
-      // light profile refresh + admin flag refresh
+      // UPDATE profile + admin flag
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -78,7 +79,7 @@ export async function POST(req: Request) {
       })
     }
 
-    // Issue session cookie
+    // Session cookie
     const token = signSession({ userId: user.id, isAdmin: user.isAdmin })
     const res = NextResponse.json({ ok: true, user })
     res.cookies.set(COOKIE, token, {
@@ -86,7 +87,7 @@ export async function POST(req: Request) {
       secure: true,
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24 * 365, // 1 year
+      maxAge: 60 * 60 * 24 * 365,
     })
     return res
   } catch (e: any) {
