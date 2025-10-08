@@ -20,13 +20,11 @@ export default async function Nav() {
         })
         isAdmin = !!u?.isAdmin
       }
-    } catch {
-      isAdmin = false
-    }
+    } catch {}
   }
 
   return (
-    <nav style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
+    <nav className="nav">
       <Link href="/">Bosh sahifa</Link>
       <Link href="/library">Sotib olingan</Link>
       <Link href="/leaderboard">Reyting</Link>
