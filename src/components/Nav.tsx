@@ -1,36 +1,48 @@
 // src/components/Nav.tsx
+'use client'
+
 import Link from 'next/link'
-import { cookies } from 'next/headers'
-import { verifySession } from '@/src/lib/jwt'
-import { prisma } from '@/src/lib/db'
+import { useEffect, useState } from 'react'
 
-const COOKIE = process.env.SESSION_COOKIE || 'uzvideohub_session'
+type Me = { id: number; coins: number; isAdmin?: boolean | null } | null
 
-export default async function Nav() {
-  const token = cookies().get(COOKIE)?.value || ''
-  let isAdmin = false
+export default function Nav() {
+  const [me, setMe] = useState<Me>(null)
 
-  if (token) {
-    try {
-      const s = verifySession<{ userId: number }>(token)
-      if (s?.userId) {
-        const u = await prisma.user.findUnique({
-          where: { id: s.userId },
-          select: { isAdmin: true },
-        })
-        isAdmin = !!u?.isAdmin
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const r = await fetch('/api/me', { cache: 'no-store' })
+        const j = await r.json().catch(() => ({}))
+        setMe(r.ok && j?.ok ? (j.user as Me) : null)
+      } catch {
+        setMe(null)
       }
-    } catch {}
-  }
+    })()
+  }, [])
 
   return (
-    <nav className="nav">
-      <Link href="/">Bosh sahifa</Link>
-      <Link href="/library">Sotib olingan</Link>
-      <Link href="/leaderboard">Reyting</Link>
-      {isAdmin && <Link href="/admin">Admin</Link>}
-      {isAdmin && <Link href="/tg">Telegram</Link>}
-      <Link href="/profile">Profil</Link>
-    </nav>
+    <header
+      className="section"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr auto',
+        alignItems: 'center',
+        gap: 10,
+      }}
+    >
+      {/* Left: balance */}
+      <div style={{ fontWeight: 700 }}>
+        Hisob: {typeof me?.coins === 'number' ? me!.coins : 0}
+      </div>
+
+      {/* Right: brand + links if needed */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Link href="/" style={{ textDecoration: 'none', color: 'inherit', fontWeight: 800 }}>
+          UzvideoHub
+        </Link>
+      </div>
+    </header>
   )
 }
+```0
