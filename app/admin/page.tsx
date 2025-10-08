@@ -12,10 +12,38 @@ type Txn = { id: number; userId: number; adminId?: number | null; delta: number;
 type NewForm = { title: string; description: string; url: string; price: number; isFree: boolean; thumbUrl: string; category: string; tags: string }
 type EditForm = { title?: string; description?: string; url?: string; price?: number; isFree?: boolean; thumbUrl?: string; category?: string; tags?: string }
 
+function isYandexLink(u?: string | null) {
+  const s = u || ''
+  return s.includes('disk.yandex') || s.includes('yadi.sk')
+}
+function extractFileId(val?: string | null): string | null {
+  if (!val) return null
+  let s = val.trim()
+  if (s.startsWith('file_id:')) s = s.slice('file_id:'.length)
+  if (!s.includes('://') && s.length > 30) return s
+  return null
+}
+async function resolveYandexPublic(link: string): Promise<string> {
+  try {
+    const r = await fetch(`/api/yandex/resolve?url=${encodeURIComponent(link)}`)
+    const j = await r.json()
+    if (j?.ok && j?.href) return j.href as string
+  } catch {}
+  return link
+}
+async function resolveThumb(input?: string | null): Promise<string> {
+  if (!input) return ''
+  const fid = extractFileId(input)
+  if (fid) return `/api/telegram/file?file_id=${encodeURIComponent(fid)}`
+  if (isYandexLink(input)) return resolveYandexPublic(input)
+  return input
+}
+
 export default function AdminPage() {
   const [me, setMe] = useState<{ user: { isAdmin: boolean } | null } | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [videos, setVideos] = useState<Video[]>([])
+  const [thumbs, setThumbs] = useState<Record<number, string>>({})
   const [history, setHistory] = useState<Txn[]>([])
   const [selectedUser, setSelectedUser] = useState<number | ''>('')
   const [delta, setDelta] = useState<number>(0)
@@ -30,9 +58,13 @@ export default function AdminPage() {
     setMe(meRes)
     if (!meRes?.user?.isAdmin) return
     const u = await fetch('/api/admin/users').then(r => r.ok ? r.json() : [])
-    const v = await fetch('/api/videos').then(r => r.ok ? r.json() : [])
+    const v: Video[] = await fetch('/api/videos').then(r => r.ok ? r.json() : [])
     const h = await fetch('/api/admin/coins/history').then(r => r.ok ? r.json() : [])
     setUsers(u || []); setVideos(v || []); setHistory(h || [])
+    // resolve thumbs for preview
+    const out: Record<number, string> = {}
+    await Promise.all(v.map(async (vv) => { out[vv.id] = await resolveThumb(vv.thumbUrl || '') }))
+    setThumbs(out)
   }
   useEffect(() => { loadAll() }, [])
 
@@ -77,12 +109,12 @@ export default function AdminPage() {
   return (
     <div style={{ display: 'grid', gap: 24, gridTemplateColumns: '1fr 1fr' }}>
       <section style={{ background: 'rgba(255,255,255,0.06)', padding: 16, borderRadius: 12 }}>
-        <h2 style={{ fontWeight: 800, marginBottom: 12 }}>Video qo‘shish (havola)</h2>
+        <h2 style={{ fontWeight: 800, marginBottom: 12 }}>Video qo‘shish (havola yoki file_id)</h2>
         <form onSubmit={addVideo} style={{ display: 'grid', gap: 8 }}>
           <input placeholder="Sarlavha" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
           <textarea placeholder="Tavsif" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
-          <input placeholder="Video URL (Yandex Disk - to‘g‘ridan)" value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} />
-          <input placeholder="Poster/thumbnail URL (ixtiyoriy)" value={form.thumbUrl} onChange={e => setForm({ ...form, thumbUrl: e.target.value })} />
+          <input placeholder="Video URL yoki file_id:XXXX" value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} />
+          <input placeholder="Poster/thumbnail URL yoki file_id:XXXX" value={form.thumbUrl} onChange={e => setForm({ ...form, thumbUrl: e.target.value })} />
           <div style={{ display: 'flex', gap: 12 }}>
             <input placeholder="Kategoriya" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} />
             <input placeholder="Teglar (vergul bilan)" value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} />
@@ -115,26 +147,6 @@ export default function AdminPage() {
         </div>
       </section>
 
-      <section style={{ background: 'rgba(255,255,255,0.06)', padding: 16, borderRadius: 12 }}>
-        <h2 style={{ fontWeight: 800, marginBottom: 12 }}>Foydalanuvchilar</h2>
-        <div style={{ display: 'grid', gap: 8, maxHeight: 420, overflow: 'auto' }}>
-          {users.map(u => (
-            <div key={u.id} style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: 8, borderRadius: 8 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700 }}>{u.name || u.username || `tg_${u.id}`}</div>
-                <div style={{ opacity: 0.7, fontSize: 12 }}>Tangalar: {u.coins} · {u.isAdmin ? 'Admin' : 'Oddiy'}</div>
-              </div>
-              <input type="number" defaultValue={u.coins} id={`coins-${u.id}`} style={{ width: 100 }} />
-              <button onClick={async () => {
-                const val = Number((document.getElementById(`coins-${u.id}`) as HTMLInputElement).value)
-                const res = await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: u.id, coins: val }) })
-                if (res.ok) loadAll(); else alert('Xatolik')
-              }}>O‘rnatish</button>
-            </div>
-          ))}
-        </div>
-      </section>
-
       <section style={{ gridColumn: '1 / -1', background: 'rgba(255,255,255,0.06)', padding: 16, borderRadius: 12 }}>
         <h2 style={{ fontWeight: 800, marginBottom: 12 }}>Videolar</h2>
         <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
@@ -143,16 +155,16 @@ export default function AdminPage() {
               <div style={{
                 height: 140, borderRadius: 8, marginBottom: 8,
                 background: 'rgba(255,255,255,0.06)',
-                backgroundImage: v.thumbUrl ? `url(${v.thumbUrl})` : undefined,
+                backgroundImage: thumbs[v.id] ? `url(${thumbs[v.id]})` : undefined,
                 backgroundSize: 'cover', backgroundPosition: 'center'
               }} />
               {editId === v.id ? (
                 <div style={{ display: 'grid', gap: 6 }}>
                   <input placeholder="Sarlavha" defaultValue={v.title} onChange={e => setEdit({ ...edit, title: e.target.value })} />
-                  <input placeholder="Poster URL" defaultValue={v.thumbUrl || ''} onChange={e => setEdit({ ...edit, thumbUrl: e.target.value })} />
+                  <input placeholder="Poster URL yoki file_id:XXXX" defaultValue={v.thumbUrl || ''} onChange={e => setEdit({ ...edit, thumbUrl: e.target.value })} />
                   <input placeholder="Kategoriya" defaultValue={v.category || ''} onChange={e => setEdit({ ...edit, category: e.target.value })} />
                   <input placeholder="Teglar (vergul bilan)" defaultValue={v.tags?.join(', ') || ''} onChange={e => setEdit({ ...edit, tags: e.target.value })} />
-                  <input placeholder="Video URL" defaultValue={v.url} onChange={e => setEdit({ ...edit, url: e.target.value })} />
+                  <input placeholder="Video URL yoki file_id:XXXX" defaultValue={v.url} onChange={e => setEdit({ ...edit, url: e.target.value })} />
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       <input type="checkbox" defaultChecked={v.isFree} onChange={e => setEdit({ ...edit, isFree: e.target.checked })} /> Bepul
