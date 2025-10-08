@@ -20,70 +20,106 @@ type Video = {
 export default function AdminPage() {
   const [list, setList] = useState<Video[]>([])
   const [loading, setLoading] = useState(false)
-  const [newV, setNewV] = useState<Partial<Video>>({ isFree: false, price: 0 })
+  const [err, setErr] = useState<string>('')
+
+  const [newV, setNewV] = useState<Partial<Video>>({
+    isFree: false,
+    price: 0,
+  })
   const [edit, setEdit] = useState<Partial<Video> & { id?: number }>({})
 
   const load = async () => {
-    const r = await fetch('/api/videos?limit=200', { cache: 'no-store' })
-    const j = await r.json()
-    setList(j.items || [])
+    setErr('')
+    try {
+      const r = await fetch('/api/videos?limit=200', { cache: 'no-store' })
+      const j = await r.json()
+      setList(Array.isArray(j?.items) ? j.items : [])
+    } catch (e: any) {
+      setErr(String(e?.message || e))
+      setList([])
+    }
   }
   useEffect(() => { load() }, [])
 
   const create = async () => {
     setLoading(true)
+    setErr('')
     try {
       const r = await fetch('/api/admin/seed', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ video: newV })
+        body: JSON.stringify({ video: newV }),
       })
-      await r.json()
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok || !j?.ok) throw new Error(j?.error || 'Create failed')
       setNewV({ isFree: false, price: 0 })
       await load()
-    } finally { setLoading(false) }
+      alert('✅ Video qo‘shildi!')
+    } catch (e: any) {
+      setErr(String(e?.message || e))
+      alert('❌ Xatolik: ' + String(e?.message || e))
+    } finally {
+      setLoading(false)
+    }
   }
 
   const save = async (id: number) => {
     setLoading(true)
+    setErr('')
     try {
       const payload: any = { ...edit }
       if (typeof payload.tags === 'string') {
         payload.tags = payload.tags.split(',').map((s: string) => s.trim()).filter(Boolean)
       }
-      await fetch(`/api/admin/videos/${id}`, {
+      const r = await fetch(`/api/admin/videos/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok || !j?.ok) throw new Error(j?.error || 'Update failed')
       setEdit({})
       await load()
-    } finally { setLoading(false) }
+      alert('✅ Saqlandi')
+    } catch (e: any) {
+      setErr(String(e?.message || e))
+      alert('❌ Xatolik: ' + String(e?.message || e))
+    } finally {
+      setLoading(false)
+    }
   }
 
   const remove = async (id: number) => {
     if (!confirm('O‘chirishni tasdiqlaysizmi?')) return
     setLoading(true)
     try {
-      await fetch(`/api/admin/videos/${id}`, { method: 'DELETE' })
+      const r = await fetch(`/api/admin/videos/${id}`, { method: 'DELETE' })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok || !j?.ok) throw new Error(j?.error || 'Delete failed')
       await load()
-    } finally { setLoading(false) }
+    } catch (e: any) {
+      alert('❌ Xatolik: ' + String(e?.message || e))
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <div className="container" style={{ display: 'grid', gap: 14 }}>
       <h1 style={{ fontWeight: 800, fontSize: 22, margin: 0 }}>Admin</h1>
 
+      {err && <div className="section" style={{ color: '#ffb4b4' }}>Xatolik: {err}</div>}
+
       {/* Create */}
       <div className="section form-grid">
         <div style={{ fontWeight: 700 }}>Yangi video qo‘shish</div>
         <input placeholder="Kod (masalan: 013)" value={newV.code || ''} onChange={e => setNewV({ ...newV, code: e.target.value })} />
-        <input placeholder="Sarlavha" value={newV.title || ''} onChange={e => setNewV({ ...newV, title: e.target.value })} />
+        <input placeholder="Sarlavha *" value={newV.title || ''} onChange={e => setNewV({ ...newV, title: e.target.value })} />
         <textarea placeholder="Tavsif" value={newV.description || ''} onChange={e => setNewV({ ...newV, description: e.target.value })} />
         <input placeholder="Poster URL yoki file_id:..." value={newV.thumbUrl || ''} onChange={e => setNewV({ ...newV, thumbUrl: e.target.value })} />
         <input placeholder="Kategoriya (ixtiyoriy)" value={newV.category || ''} onChange={e => setNewV({ ...newV, category: e.target.value })} />
         <input placeholder="Teglar (vergul bilan)" value={(newV.tags as any) || ''} onChange={e => setNewV({ ...newV, tags: e.target.value as any })} />
-        <input placeholder="Video URL yoki file_id:..." value={newV.url || ''} onChange={e => setNewV({ ...newV, url: e.target.value })} />
+        <input placeholder="Video URL yoki file_id:*" value={newV.url || ''} onChange={e => setNewV({ ...newV, url: e.target.value })} />
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <label><input type="checkbox" checked={!!newV.isFree} onChange={e => setNewV({ ...newV, isFree: e.target.checked })} /> Bepul</label>
           <input type="number" placeholder="Narx (tanga)" value={newV.price || 0} onChange={e => setNewV({ ...newV, price: parseInt(e.target.value || '0', 10) })} />
