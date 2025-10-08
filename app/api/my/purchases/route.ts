@@ -1,27 +1,51 @@
 // app/api/my/purchases/route.ts
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { prisma } from '@/src/lib/db'
 import { verifySession } from '@/src/lib/jwt'
+
 const COOKIE = process.env.SESSION_COOKIE || 'uzvideohub_session'
 
-export async function GET(req: Request) {
-  // @ts-ignore
-  const token = req.cookies?.get?.(COOKIE)?.value || ''
-  const s = verifySession<{ userId: number }>(token)
-  if (!s?.userId) return NextResponse.json([])
+export async function GET() {
+  try {
+    const token = cookies().get(COOKIE)?.value || ''
+    if (!token) return NextResponse.json({ ok: true, items: [] })
 
-  const items = await prisma.purchase.findMany({
-    where: { userId: s.userId },
-    orderBy: { createdAt: 'desc' },
-    include: { video: { select: { id: true, title: true, description: true } } },
-  })
+    const s = verifySession<{ userId: number }>(token)
+    if (!s?.userId) return NextResponse.json({ ok: true, items: [] })
 
-  const videos = items.map((i) => ({
-    id: i.video.id,
-    title: i.video.title,
-    description: i.video.description,
-    price: i.price,
-  }))
+    const rows = await prisma.purchase.findMany({
+      where: { userId: s.userId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        createdAt: true,
+        price: true,
+        video: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            thumbUrl: true,
+            url: true,
+            isFree: true,
+            price: true,
+            category: true,
+            code: true,
+          },
+        },
+      },
+    })
 
-  return NextResponse.json(videos)
+    // Flatten to videos array (keeping purchase info if needed later)
+    const items = rows
+      .map(r => r?.video)
+      .filter(Boolean)
+
+    return NextResponse.json({ ok: true, items })
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: String(e?.message || e), items: [] }, { status: 500 })
+  }
 }
