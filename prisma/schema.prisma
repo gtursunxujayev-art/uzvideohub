@@ -1,4 +1,5 @@
 // prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,34 +10,44 @@ datasource db {
 }
 
 model User {
-  id           Int       @id @default(autoincrement())
-  telegramId   String?   @unique
+  id           Int      @id @default(autoincrement())
+  tgId         String?  @unique
+  name         String?
   username     String?
   displayName  String?
-  coins        Int       @default(0)
-  isAdmin      Boolean   @default(false)
-  referredById Int?
-  referredBy   User?     @relation("UserReferrals", fields: [referredById], references: [id])
-  referrals    User[]    @relation("UserReferrals")
-  videos       Purchase[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  coins        Int      @default(0)
+  isAdmin      Boolean  @default(false)
+
+  // Referrals
+  referralCode     String? @unique
+  referredByUserId Int?
+  referredBy       User?   @relation("UserReferrer", fields: [referredByUserId], references: [id])
+  referrals        User[]  @relation("UserReferrer")
+
+  // Relations
+  purchases        Purchase[]
+  coinTransactions CoinTransaction[] @relation("UserCoinTxns")
+  adminCoinTxns    CoinTransaction[] @relation("AdminCoinTxns")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-
 model Video {
-  id          Int        @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   title       String
   description String
   url         String
+  isFree      Boolean   @default(false)
+  price       Int       @default(0)
   thumbUrl    String?
   category    String?
-  tags        String[]   @default([])
-  isFree      Boolean    @default(false)
-  price       Int        @default(0)
-  createdAt   DateTime   @default(now())
+  tags        String[]  @default([])
 
   purchases   Purchase[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model Purchase {
@@ -60,8 +71,6 @@ model CoinTransaction {
   reason    String?
   createdAt DateTime @default(now())
 
-  user   User  @relation("UserCoinTxns",  fields: [userId],  references: [id])
-  admin  User? @relation("AdminCoinTxns", fields: [adminId], references: [id])
-
-  @@index([userId, createdAt])
+  user   User  @relation(name: "UserCoinTxns",  fields: [userId],  references: [id])
+  admin  User? @relation(name: "AdminCoinTxns", fields: [adminId], references: [id])
 }
