@@ -1,54 +1,33 @@
 // app/api/auth/telegram/webapp/route.ts
 export const runtime = 'nodejs'
-
 import { NextResponse } from 'next/server'
 import { prisma } from '@/src/lib/db'
-import { signSession } from '@/src/lib/jwt'
-import { verifyInitData } from '@/src/lib/telegramWebApp'
-
-const COOKIE = process.env.SESSION_COOKIE || 'uzvideohub_session'
 
 export async function POST(req: Request) {
-  const { initData } = await req.json()
-  const verified = verifyInitData(String(initData || ''))
-  if (!verified.ok) {
-    return NextResponse.json({ ok: false, error: 'Auth failed: bad signature' }, { status: 401 })
-  }
+  const data = await req.json()
+  const { telegramId, username, displayName, ref } = data
 
-  const tgUser =
-    (verified.data?.user as any) ||
-    (verified.data?.['user'] ? JSON.parse(String(verified.data?.['user'])) : null)
-
-  if (!tgUser?.id) {
-    return NextResponse.json({ ok: false, error: 'No user' }, { status: 400 })
-  }
-
-  const telegramId = String(tgUser.id)
-  const username = tgUser.username || null
-  const name = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ').trim() || null
-
-  const adminIds = (process.env.ADMIN_TELEGRAM_IDS || '')
-    .split(',')
-    .map((x) => x.trim())
-  const isAdmin = adminIds.includes(telegramId)
+  if (!telegramId) return NextResponse.json({ ok: false, error: 'No telegramId' })
 
   let user = await prisma.user.findUnique({ where: { telegramId } })
   if (!user) {
+    const referredBy = ref ? await prisma.user.findUnique({ where: { id: parseInt(ref) || 0 } }) : null
     user = await prisma.user.create({
-      data: { telegramId, username, name, isAdmin, coins: 20 },
+      data: {
+        telegramId,
+        username,
+        displayName,
+        referredById: referredBy ? referredBy.id : null,
+      },
     })
-  } else if (isAdmin && !user.isAdmin) {
-    user = await prisma.user.update({ where: { id: user.id }, data: { isAdmin: true } })
+    // give bonus coins to referrer
+    if (referredBy) {
+      await prisma.user.update({
+        where: { id: referredBy.id },
+        data: { coins: { increment: 5 } },
+      })
+    }
   }
 
-  const token = signSession({ userId: user.id, isAdmin: user.isAdmin })
-  const res = NextResponse.json({ ok: true })
-  res.cookies.set(COOKIE, token, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30,
-  })
-  return res
+  return NextResponse.json({ ok: true, user })
 }
