@@ -11,13 +11,10 @@ type Video = {
   category?: string | null
   isFree: boolean
   price: number
-  createdAt?: string
-  updatedAt?: string
 }
 
 function mediaSrc(value?: string | null) {
   if (!value) return ''
-  // Allow direct HTTPS or Telegram file_id via our proxy
   if (/^https?:\/\//i.test(value)) return `/api/proxy-media?src=${encodeURIComponent(value)}`
   return `/api/proxy-media?file_id=${encodeURIComponent(value)}`
 }
@@ -30,10 +27,24 @@ function getBaseUrl() {
 
 async function loadVideos(): Promise<{ items: Video[]; error?: string }> {
   try {
-    const res = await fetch(`${getBaseUrl()}/api/videos`, { cache: 'no-store' })
-    const json = await res.json().catch(() => ({ ok: false, error: 'JSON parse failed' }))
-    if (!json?.ok) return { items: [], error: json?.error || 'API error' }
-    return { items: json.items as Video[] }
+    const url = `${getBaseUrl()}/api/videos`
+    const res = await fetch(url, { cache: 'no-store' })
+
+    // Check if response is actually JSON
+    const text = await res.text()
+    try {
+      const json = JSON.parse(text)
+      if (!json?.ok) return { items: [], error: json?.error || 'API returned error' }
+      return { items: json.items as Video[] }
+    } catch {
+      return {
+        items: [],
+        error: `Invalid JSON from server (${res.status}) — maybe HTML or redirect.\nResponse: ${text.slice(
+          0,
+          200
+        )}`,
+      }
+    }
   } catch (e: any) {
     return { items: [], error: String(e?.message || e) }
   }
@@ -47,7 +58,10 @@ export default async function Home() {
       <h1 style={{ fontWeight: 800, fontSize: 24, margin: '8px 0' }}>So‘nggi videolar</h1>
 
       {error ? (
-        <div className="card" style={{ padding: 14, fontSize: 14, color: '#ff6b6b' }}>
+        <div
+          className="card"
+          style={{ padding: 14, fontSize: 14, color: '#ff6b6b', whiteSpace: 'pre-wrap' }}
+        >
           Xatolik: {error}
         </div>
       ) : items.length === 0 ? (
@@ -71,8 +85,8 @@ export default async function Home() {
                     background: 'rgba(255,255,255,0.06)',
                   }}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   {v.thumbUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={mediaSrc(v.thumbUrl)}
                       alt={v.title}
