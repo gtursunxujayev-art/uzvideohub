@@ -1,50 +1,49 @@
 // app/api/proxy-media/route.ts
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
-export const runtime = 'nodejs'
+function bad(msg: string, status = 400) {
+  return NextResponse.json({ ok: false, error: msg }, { status })
+}
 
-/**
- * Supports:
- *   /api/proxy-media?src=https://example.com/file.jpg
- *   /api/proxy-media?file_id=BAACAgIA.... (Telegram file_id)
- *
- * For file_id, we call getFile and 302-redirect to Telegram's file URL.
- */
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
-    const url = new URL(req.url)
-    const direct = url.searchParams.get('src')
-    const fileId = url.searchParams.get('file_id')
-    const type = url.searchParams.get('type') || '' // optional (thumb/video) – not required
+    const { searchParams } = new URL(req.url)
+    const src = searchParams.get('src')?.trim()
+    const fileId = searchParams.get('file_id')?.trim()
+    const BOT = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN
 
-    if (direct) {
-      // Just redirect to the direct URL so the browser loads it
-      return NextResponse.redirect(direct)
+    if (!src && !fileId) return bad('Provide ?src=https://… or ?file_id=XXXX')
+
+    // Case A: raw https URL — just redirect
+    if (src) {
+      try {
+        const u = new URL(src)
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+          return bad('src must be http(s) URL')
+        }
+      } catch {
+        return bad('src is not a valid URL')
+      }
+      return NextResponse.redirect(src, 302)
     }
 
-    if (fileId) {
-      const token = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN || process.env.TG_BOT_TOKEN
-      if (!token) {
-        return NextResponse.json({ ok: false, error: 'Missing TELEGRAM_BOT_TOKEN' }, { status: 500 })
-      }
+    // Case B: Telegram file_id
+    if (!BOT) return bad('Server missing TELEGRAM_BOT_TOKEN', 500)
 
-      // 1) Resolve file_id -> file_path
-      const api = `https://api.telegram.org/bot${token}/getFile?file_id=${encodeURIComponent(fileId)}`
-      const res = await fetch(api, { cache: 'no-store' })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data?.ok || !data?.result?.file_path) {
-        const msg = data?.description || 'getFile failed'
-        return NextResponse.json({ ok: false, error: msg }, { status: 502 })
-      }
-
-      // 2) Build downloadable file URL and redirect
-      const filePath = data.result.file_path as string
-      const fileUrl = `https://api.telegram.org/file/bot${token}/${filePath}`
-      return NextResponse.redirect(fileUrl)
+    // Resolve file_id -> file_path
+    const r = await fetch(
+      `https://api.telegram.org/bot${BOT}/getFile?file_id=${encodeURIComponent(fileId!)}`
+    )
+    const j = await r.json().catch(() => ({} as any))
+    if (!r.ok || !j?.ok || !j?.result?.file_path) {
+      const reason = j?.description || `getFile failed (status ${r.status})`
+      return bad(`Telegram getFile error: ${reason}`)
     }
+    const direct = `https://api.telegram.org/file/bot${BOT}/${j.result.file_path}`
 
-    return NextResponse.json({ ok: false, error: 'Missing src or file_id' }, { status: 400 })
+    // 302 redirect to Telegram CDN
+    return NextResponse.redirect(direct, 302)
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 })
+    return bad(String(e?.message || e), 500)
   }
 }
