@@ -15,15 +15,18 @@ type Video = {
   price: number
 }
 
-function mediaSrc(value?: string | null) {
+/** Build a proxy URL for either a full https URL or a Telegram file_id */
+function proxyUrl(value?: string | null) {
   if (!value) return ''
-  if (/^https?:\/\//i.test(value)) return `/api/proxy-media?src=${encodeURIComponent(value)}`
-  return `/api/proxy-media?file_id=${encodeURIComponent(value)}`
+  const isHttp = /^https?:\/\//i.test(value)
+  const key = isHttp ? 'src' : 'file_id'
+  return `/api/proxy-media?${key}=${encodeURIComponent(value)}`
 }
 
 export default function VideoPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+
   const [video, setVideo] = useState<Video | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -34,19 +37,18 @@ export default function VideoPage() {
     ;(async () => {
       try {
         const res = await fetch(`/api/videos?id=${encodeURIComponent(id)}`, { cache: 'no-store' })
-        const text = await res.text()
+        const txt = await res.text()
+        // Defensive: sometimes upstream returns HTML (401 etc). Try JSON first.
+        let j: any = null
         try {
-          const j = JSON.parse(text)
-          if (!j?.ok) {
-            if (!cancelled) setError(j?.error || 'Video topilmadi')
-          } else if (!cancelled) {
-            setVideo(j.item as Video)
-          }
+          j = JSON.parse(txt)
         } catch {
-          if (!cancelled) {
-            setError(`Invalid JSON from server (${res.status}). First chars: ${text.slice(0, 140)}`)
-          }
+          throw new Error(`Invalid JSON (${res.status}). First chars: ${txt.slice(0, 140)}`)
         }
+        if (!j?.ok) {
+          throw new Error(j?.error || 'Video topilmadi')
+        }
+        if (!cancelled) setVideo(j.item as Video)
       } catch (e: any) {
         if (!cancelled) setError(String(e?.message || e))
       } finally {
@@ -86,15 +88,12 @@ export default function VideoPage() {
   return (
     <div className="container" style={{ display: 'grid', gap: 16 }}>
       <h1 style={{ fontWeight: 800, fontSize: 24, margin: '8px 0' }}>
-        {video.title} {video.code ? <span style={{ opacity: 0.6, fontWeight: 400 }}>#{video.code}</span> : null}
+        {video.title}{' '}
+        {video.code ? <span style={{ opacity: 0.6, fontWeight: 400 }}>#{video.code}</span> : null}
       </h1>
 
-      <div
-        style={{
-          display: 'grid',
-          gap: 16,
-        }}
-      >
+      <div style={{ display: 'grid', gap: 16 }}>
+        {/* Video player with Telegram-aware proxy */}
         <div
           style={{
             aspectRatio: '16 / 9',
@@ -103,27 +102,16 @@ export default function VideoPage() {
             background: 'rgba(255,255,255,0.06)',
           }}
         >
-          {/* Prefer the actual video if provided; otherwise show poster */}
-          {video.url ? (
-            <video
-              controls
-              preload="metadata"
-              poster={video.thumbUrl ? mediaSrc(video.thumbUrl) : undefined}
-              style={{ width: '100%', height: '100%', display: 'block', background: 'black' }}
-              src={mediaSrc(video.url)}
-            />
-          ) : video.thumbUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={mediaSrc(video.thumbUrl)}
-              alt={video.title}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            />
-          ) : (
-            <div style={{ width: '100%', height: '100%' }} />
-          )}
+          <video
+            controls
+            preload="metadata"
+            poster={video.thumbUrl ? proxyUrl(video.thumbUrl) : undefined}
+            style={{ width: '100%', height: '100%', display: 'block', background: 'black' }}
+            src={proxyUrl(video.url)}
+          />
         </div>
 
+        {/* Details card */}
         <div className="card" style={{ display: 'grid', gap: 8, padding: 14 }}>
           <div style={{ fontSize: 15, opacity: 0.9 }}>{video.description || '—'}</div>
           <div style={{ fontSize: 13, opacity: 0.8 }}>
@@ -137,3 +125,4 @@ export default function VideoPage() {
     </div>
   )
 }
+```0
