@@ -17,11 +17,19 @@ function mediaSrc(value?: string | null) {
   return `/api/proxy-media?file_id=${encodeURIComponent(value)}`
 }
 
-export default async function VideoPage({ params }: { params: { id: string } }) {
-  const r = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ''}/api/videos?id=${encodeURIComponent(params.id)}`, { cache: 'no-store' }).catch(() => null)
-  const j = await r?.json().catch(() => ({} as any))
-  const video: Video | undefined = j?.ok ? j.item : undefined
+async function loadVideo(id: string): Promise<Video | null> {
+  try {
+    const r = await fetch(`/api/videos?id=${encodeURIComponent(id)}`, { cache: 'no-store' })
+    const j = await r.json()
+    if (!j?.ok) return null
+    return j.item as Video
+  } catch {
+    return null
+  }
+}
 
+export default async function VideoPage({ params }: { params: { id: string } }) {
+  const video = await loadVideo(params.id)
   if (!video) return <div className="container">Topilmadi</div>
 
   return (
