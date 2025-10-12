@@ -10,7 +10,7 @@ export default function Nav() {
   const [me, setMe] = useState<Me>(null)
   const [open, setOpen] = useState(false)
 
-  // swipe-to-close (simple)
+  // swipe-to-close logic
   const startX = useRef<number | null>(null)
   const onTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     startX.current = e.touches[0].clientX
@@ -18,12 +18,9 @@ export default function Nav() {
   const onTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     if (startX.current == null) return
     const dx = e.touches[0].clientX - startX.current
-    // if user swipes left on the drawer, close it
     if (dx < -40) setOpen(false)
   }
-  const onTouchEnd = () => {
-    startX.current = null
-  }
+  const onTouchEnd = () => { startX.current = null }
 
   useEffect(() => {
     ;(async () => {
@@ -45,11 +42,10 @@ export default function Nav() {
       <header
         className="section"
         style={{
-          // darker/glassy bar (Pornhub-ish strong contrast)
           background: 'linear-gradient(180deg, rgba(0,0,0,0.65), rgba(0,0,0,0.35))',
           border: '1px solid rgba(255,255,255,0.08)',
           display: 'grid',
-          gridTemplateColumns: '48px 1fr 1fr 48px', // we’ll center brand using absolute container
+          gridTemplateColumns: '48px 1fr 48px',
           alignItems: 'center',
           position: 'relative',
           height: 56,
@@ -58,7 +54,7 @@ export default function Nav() {
       >
         {/* Left: hamburger */}
         <button
-          aria-label="Menu"
+          aria-label="Menyu"
           onClick={() => setOpen(true)}
           style={{
             width: 40, height: 40, marginLeft: 4,
@@ -66,18 +62,16 @@ export default function Nav() {
             background: 'transparent', border: 'none', cursor: 'pointer',
           }}
         >
-          <div style={{ width: 22, height: 2, background: '#fff', borderRadius: 2, marginBottom: 5 }} />
-          <div style={{ width: 22, height: 2, background: '#fff', borderRadius: 2, marginBottom: 5 }} />
-          <div style={{ width: 22, height: 2, background: '#fff', borderRadius: 2 }} />
+          <span style={barStyle} />
+          <span style={{ ...barStyle, marginTop: 4 }} />
+          <span style={{ ...barStyle, marginTop: 4 }} />
         </button>
 
         {/* Center: Brand */}
         <div
           style={{
-            position: 'absolute',
-            left: 0, right: 0, top: 0, bottom: 0,
-            display: 'grid',
-            placeItems: 'center',
+            position: 'absolute', inset: 0,
+            display: 'grid', placeItems: 'center',
             pointerEvents: 'none',
           }}
         >
@@ -92,7 +86,6 @@ export default function Nav() {
               letterSpacing: 0.2,
               padding: '6px 10px',
               borderRadius: 8,
-              // subtle “hub-like” accent: white text + small pill
               background: 'rgba(255,255,255,0.06)',
               border: '1px solid rgba(255,255,255,0.08)',
             }}
@@ -102,14 +95,7 @@ export default function Nav() {
         </div>
 
         {/* Right: Balance */}
-        <div
-          style={{
-            gridColumn: '3 / 5',
-            display: 'flex',
-            justifyContent: 'flex-end',
-            paddingRight: 10,
-          }}
-        >
+        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingRight: 8 }}>
           <div
             title="Hisob"
             style={{
@@ -126,19 +112,19 @@ export default function Nav() {
         </div>
       </header>
 
-      {/* Drawer overlay */}
-      <div
-        onClick={() => setOpen(false)}
-        style={{
-          position: 'fixed',
-          inset: 0,
-          background: open ? 'rgba(0,0,0,0.45)' : 'transparent',
-          backdropFilter: open ? 'blur(1px)' : 'none',
-          transition: 'background 160ms ease',
-          pointerEvents: open ? 'auto' : 'none',
-          zIndex: 50,
-        }}
-      />
+      {/* Overlay only when open */}
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            backdropFilter: 'blur(1px)',
+            zIndex: 50,
+          }}
+        />
+      )}
 
       {/* Drawer panel */}
       <div
@@ -165,7 +151,7 @@ export default function Nav() {
             padding: '0 12px', borderBottom: '1px solid rgba(255,255,255,0.08)',
           }}
         >
-          <div style={{ fontWeight: 900 }}>Menyu</div>
+          <div style={{ fontWeight: 900, fontSize: 16 }}>Menyu</div>
           <button
             aria-label="Yopish"
             onClick={() => setOpen(false)}
@@ -180,43 +166,45 @@ export default function Nav() {
           </button>
         </div>
 
-        {/* Drawer items */}
-        <nav style={{ display: 'grid', gap: 6, padding: 10 }}>
-          <Link
-            onClick={() => setOpen(false)}
-            href="/profile"
-            style={itemStyle}
-          >
-            Profil
-          </Link>
-          <Link
-            onClick={() => setOpen(false)}
-            href="/library"
-            style={itemStyle}
-          >
-            Saqlangan videolar
-          </Link>
-          <Link
-            onClick={() => setOpen(false)}
-            href="/reyting"
-            style={itemStyle}
-          >
-            Reyting
-          </Link>
+        {/* Drawer items (compact, single row) */}
+        <nav style={{ padding: '8px 6px' }}>
+          <MenuItem href="/profile" label="Profil" onClick={() => setOpen(false)} />
+          <MenuItem href="/library" label="Saqlangan videolar" onClick={() => setOpen(false)} />
+          <MenuItem href="/reyting" label="Reyting" onClick={() => setOpen(false)} />
         </nav>
       </div>
     </>
   )
 }
 
-const itemStyle: React.CSSProperties = {
-  display: 'block',
-  padding: '12px 12px',
-  borderRadius: 10,
-  textDecoration: 'none',
-  color: 'inherit',
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.08)',
-  fontWeight: 700,
-  fontSize: 15,
+function MenuItem({ href, label, onClick }: { href: string; label: string; onClick?: () => void }) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        height: 48,
+        padding: '0 12px',
+        margin: '6px 6px',
+        borderRadius: 10,
+        textDecoration: 'none',
+        color: 'inherit',
+        background: 'rgba(255,255,255,0.06)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        fontWeight: 700,
+        fontSize: 15,
+      }}
+    >
+      {label}
+    </Link>
+  )
+}
+
+const barStyle: React.CSSProperties = {
+  width: 22,
+  height: 2,
+  background: '#fff',
+  borderRadius: 2,
 }
