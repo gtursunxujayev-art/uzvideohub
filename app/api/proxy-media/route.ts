@@ -1,49 +1,112 @@
 // app/api/proxy-media/route.ts
-import { NextRequest, NextResponse } from 'next/server'
+// Streams images & videos with byte-range support.
+// Usage:
+//   /api/proxy-media?src=https%3A%2F%2Fapi.telegram.org%2Ffile%2FbotXXXX%2Fvideos%2Ffile_0.mp4
+//   /api/proxy-media?file_id=AAE...  (will resolve to Telegram file URL via getFile)
 
-function bad(msg: string, status = 400) {
-  return NextResponse.json({ ok: false, error: msg }, { status })
+import { NextRequest, NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const TG_TOKEN =
+  process.env.TELEGRAM_BOT_TOKEN ||
+  process.env.TG_BOT_TOKEN ||
+  process.env.BOT_TOKEN;
+
+function bad(message: string, status = 400, extra?: any) {
+  return NextResponse.json({ ok: false, error: message, ...extra }, { status });
+}
+
+function isHttpUrl(s?: string | null) {
+  if (!s) return false;
+  try {
+    const u = new URL(s);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+async function resolveTelegramFileUrl(fileId: string) {
+  if (!TG_TOKEN) throw new Error("Missing TELEGRAM_BOT_TOKEN in env");
+  const api = `https://api.telegram.org/bot${TG_TOKEN}/getFile?file_id=${encodeURIComponent(
+    fileId
+  )}`;
+  const r = await fetch(api, { cache: "no-store" });
+  if (!r.ok) {
+    const t = await r.text().catch(() => "");
+    throw new Error(`getFile failed: ${r.status} ${t.slice(0, 200)}`);
+  }
+  const j = (await r.json()) as any;
+  if (!j?.ok || !j?.result?.file_path) {
+    throw new Error(`getFile bad response`);
+  }
+  return `https://api.telegram.org/file/bot${TG_TOKEN}/${j.result.file_path}`;
+}
+
+async function proxy(req: NextRequest, targetUrl: string) {
+  // Forward Range header for video seeking
+  const range = req.headers.get("range") || undefined;
+
+  const resp = await fetch(targetUrl, {
+    headers: range ? { Range: range } : undefined,
+    cache: "no-store",
+  });
+
+  if (!resp.ok && resp.status !== 206) {
+    const text = await resp.text().catch(() => "");
+    return bad("Upstream fetch failed", resp.status, {
+      upstreamStatus: resp.status,
+      preview: text.slice(0, 200),
+    });
+  }
+
+  // Copy important headers through
+  const headers = new Headers();
+  const ct = resp.headers.get("content-type");
+  const cl = resp.headers.get("content-length");
+  const cr = resp.headers.get("content-range");
+  const ar = resp.headers.get("accept-ranges");
+
+  if (ct) headers.set("Content-Type", ct);
+  if (cl) headers.set("Content-Length", cl);
+  if (cr) headers.set("Content-Range", cr);
+  headers.set("Accept-Ranges", ar || "bytes");
+  headers.set("Cache-Control", "public, max-age=86400, s-maxage=86400");
+
+  return new Response(resp.body, {
+    status: resp.status,
+    headers,
+  });
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url)
-    const src = searchParams.get('src')?.trim()
-    const fileId = searchParams.get('file_id')?.trim()
-    const BOT = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN
+    const fullUrl = req.url.startsWith("http")
+      ? req.url
+      : `${req.headers.get("x-forwarded-proto") || "https"}://${
+          req.headers.get("host") || ""
+        }${req.url}`;
 
-    if (!src && !fileId) return bad('Provide ?src=https://… or ?file_id=XXXX')
+    const { searchParams } = new URL(fullUrl);
+    const src = searchParams.get("src");
+    const fileId = searchParams.get("file_id");
 
-    // Case A: raw https URL — just redirect
+    let target = "";
+
     if (src) {
-      try {
-        const u = new URL(src)
-        if (u.protocol !== 'http:' && u.protocol !== 'https:') {
-          return bad('src must be http(s) URL')
-        }
-      } catch {
-        return bad('src is not a valid URL')
-      }
-      return NextResponse.redirect(src, 302)
+      if (!isHttpUrl(src)) return bad("Invalid src URL");
+      target = src;
+    } else if (fileId) {
+      target = await resolveTelegramFileUrl(fileId);
+    } else {
+      return bad('Provide "src" or "file_id"');
     }
 
-    // Case B: Telegram file_id
-    if (!BOT) return bad('Server missing TELEGRAM_BOT_TOKEN', 500)
-
-    // Resolve file_id -> file_path
-    const r = await fetch(
-      `https://api.telegram.org/bot${BOT}/getFile?file_id=${encodeURIComponent(fileId!)}`
-    )
-    const j = await r.json().catch(() => ({} as any))
-    if (!r.ok || !j?.ok || !j?.result?.file_path) {
-      const reason = j?.description || `getFile failed (status ${r.status})`
-      return bad(`Telegram getFile error: ${reason}`)
-    }
-    const direct = `https://api.telegram.org/file/bot${BOT}/${j.result.file_path}`
-
-    // 302 redirect to Telegram CDN
-    return NextResponse.redirect(direct, 302)
+    return await proxy(req, target);
   } catch (e: any) {
-    return bad(String(e?.message || e), 500)
+    return bad(String(e?.message || e), 500);
   }
 }
