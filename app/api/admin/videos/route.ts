@@ -1,62 +1,70 @@
 // app/api/admin/videos/route.ts
-export const runtime = 'nodejs'
-
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { prisma } from '@/src/lib/db'
-import { verifySession } from '@/src/lib/jwt'
+import { PrismaClient } from '@prisma/client'
 
-const COOKIE = process.env.SESSION_COOKIE || 'uzvideohub_session'
+export const runtime = 'nodejs'
+const prisma = new PrismaClient()
 
-async function getAdmin() {
-  const token = cookies().get(COOKIE)?.value || ''
-  if (!token) return null
-  try {
-    const s = verifySession<{ userId: number }>(token)
-    if (!s?.userId) return null
-    const u = await prisma.user.findUnique({
-      where: { id: s.userId },
-      select: { id: true, isAdmin: true },
-    })
-    return u && u.isAdmin ? u : null
-  } catch {
-    return null
-  }
+type Body = {
+  code?: string
+  title: string
+  description?: string
+  url: string              // can be http(s) or telegram file_id
+  thumbUrl?: string        // http(s) or telegram file_id
+  category?: string
+  tags?: string[]          // optional array
+  isFree?: boolean
+  price?: number
 }
 
-export async function GET() {
+/** very small utility to decide if string is http(s) link or telegram file_id */
+function normalizeMedia(v?: string) {
+  if (!v) return undefined
+  const s = v.trim()
+  if (!s) return undefined
+  // Allow direct url or file_id; store as-is — your UI uses /api/proxy-media for http(s)
+  return s
+}
+
+export async function POST(req: Request) {
   try {
-    const admin = await getAdmin()
-    if (!admin) {
-      return NextResponse.json(
-        { ok: false, error: 'Unauthorized: admin only' },
-        { status: 401 }
-      )
+    const b = (await req.json()) as Body
+
+    const title = (b.title || '').trim()
+    const url = normalizeMedia(b.url)
+    if (!title) {
+      return NextResponse.json({ ok: false, error: 'Sarlavha majburiy' }, { status: 400 })
+    }
+    if (!url) {
+      return NextResponse.json({ ok: false, error: 'Video URL yoki file_id majburiy' }, { status: 400 })
     }
 
-    const items = await prisma.video.findMany({
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        code: true,
-        title: true,
-        description: true,
-        url: true,
-        isFree: true,
-        price: true,
-        thumbUrl: true,
-        category: true,
-        tags: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    })
+    const isFree = Boolean(b.isFree)
+    const price = isFree ? 0 : Math.max(0, Number.isFinite(b.price as any) ? Number(b.price) : 0)
 
-    return NextResponse.json({ ok: true, items, total: items.length })
+    if (!isFree && price <= 0) {
+      return NextResponse.json({ ok: false, error: 'Pullik video uchun narx > 0 bo‘lishi kerak' }, { status: 400 })
+    }
+
+    const data = {
+      code: (b.code || '').trim() || null,
+      title,
+      description: (b.description || '').trim(),
+      url,
+      thumbUrl: normalizeMedia(b.thumbUrl) || null,
+      category: (b.category || '').trim() || null,
+      tags: Array.isArray(b.tags) ? b.tags.map(s => String(s).trim()).filter(Boolean) : [],
+      isFree,
+      price,
+    }
+
+    const created = await prisma.video.create({ data })
+    return NextResponse.json({ ok: true, item: created })
   } catch (e: any) {
+    // surface prisma details if available
     return NextResponse.json(
       { ok: false, error: String(e?.message || e) },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
