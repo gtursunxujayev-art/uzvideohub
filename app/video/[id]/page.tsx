@@ -55,9 +55,7 @@ export default function VideoPage() {
         if (!cancelled) setLoading(false)
       }
     })()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [id])
 
   const onLoadedMetadata = () => {
@@ -80,7 +78,7 @@ export default function VideoPage() {
         await req.call(el)
         return
       } catch {
-        // fall back below
+        /* fall back to overlay */
       }
     }
     setFs(true)
@@ -112,6 +110,7 @@ export default function VideoPage() {
     )
   }
 
+  // Wrapper around the video so we can absolutely position our custom control
   const pageBoxStyle: React.CSSProperties = ratio
     ? {
         width: '100%',
@@ -119,7 +118,7 @@ export default function VideoPage() {
         borderRadius: 12,
         overflow: 'hidden',
         background: 'rgba(255,255,255,0.06)',
-        position: 'relative',          // <-- anchor for the absolute button
+        position: 'relative',
       }
     : {
         width: '100%',
@@ -127,8 +126,11 @@ export default function VideoPage() {
         borderRadius: 12,
         overflow: 'hidden',
         background: 'rgba(255,255,255,0.06)',
-        position: 'relative',          // <-- anchor for the absolute button
+        position: 'relative',
       }
+
+  // Height of the native control strip (approx), to float "above" it:
+  const liftAboveControlsPx = 46   // adjust if your device overlays are taller/shorter
 
   return (
     <>
@@ -139,7 +141,7 @@ export default function VideoPage() {
 
         <div style={{ display: 'grid', gap: 16 }}>
           <div style={pageBoxStyle}>
-            {/* Main inline player */}
+            {/* Inline player */}
             <video
               ref={vRef}
               controls
@@ -160,26 +162,26 @@ export default function VideoPage() {
               src={mediaSrc(video.url)}
             />
 
-            {/* Custom fullscreen button — bottom-right, clickable over the video */}
+            {/* Custom fullscreen button — SHORT TEXT and just ABOVE native icon */}
             <button
               onClick={openFullscreen}
-              aria-label="To‘liq ekran"
+              aria-label="To‘liq"
               style={{
                 position: 'absolute',
                 right: 10,
-                bottom: 10,            // <-- bottom of the player
-                zIndex: 3,             // <-- above the video controls
-                pointerEvents: 'auto', // ensure button gets the tap
+                bottom: liftAboveControlsPx, // lift above native control row
+                zIndex: 3,
+                pointerEvents: 'auto',
                 background: 'rgba(17,17,17,0.85)',
                 border: '1px solid rgba(255,255,255,0.25)',
                 color: '#fff',
-                padding: '8px 12px',
+                padding: '6px 10px',
                 borderRadius: 10,
-                fontSize: 13,
+                fontSize: 12,
                 boxShadow: '0 3px 10px rgba(0,0,0,0.35)',
               }}
             >
-              To‘liq ekran
+              To‘liq
             </button>
           </div>
 
