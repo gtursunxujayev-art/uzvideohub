@@ -79,7 +79,8 @@ export default function AdminPage() {
       })
       const j = await r.json().catch(() => ({}))
       if (!r.ok || !j?.ok) throw new Error(j?.error || 'Tangalarni berib bo‘lmadi')
-      setAmount(''); setGiveTo('')
+      setAmount('')
+      setGiveTo('')
       alert('Tangalari yangilandi')
     } catch (e: any) {
       alert(String(e?.message || e))
@@ -98,7 +99,10 @@ export default function AdminPage() {
 
   async function createVideo() {
     const val = validateCreate()
-    if (!val.ok) { alert(val.msg); return }
+    if (!val.ok) {
+      alert(val.msg)
+      return
+    }
     try {
       const body = {
         code: vCode || undefined,
@@ -118,10 +122,18 @@ export default function AdminPage() {
       })
       const txt = await r.text()
       let j: any = {}
-      try { j = JSON.parse(txt) } catch {}
+      try { j = JSON.parse(txt) } catch { /* keep raw text in error */ }
       if (!r.ok || !j?.ok) throw new Error(j?.error || txt || 'Video qo‘shilmadi')
       // reset
-      setVCode(''); setVTitle(''); setVDesc(''); setVThumb(''); setVCat(''); setVTags(''); setVUrl(''); setVFree(false); setVPrice('0')
+      setVCode('')
+      setVTitle('')
+      setVDesc('')
+      setVThumb('')
+      setVCat('')
+      setVTags('')
+      setVUrl('')
+      setVFree(false)
+      setVPrice('0')
       await refreshVideos()
       alert('Video qo‘shildi')
     } catch (e: any) {
@@ -191,7 +203,7 @@ export default function AdminPage() {
           <button style={btn} onClick={createVideo}>Qo‘shish</button>
         </section>
 
-        {/* Videos list – read-only rows (no default edit mode) */}
+        {/* Videos list – read-only rows until user clicks “Tahrirlash” */}
         <div style={{ display: 'grid', gap: 12 }}>
           {videos.map((v) => (
             <VideoRow key={v.id} v={v} onUpdated={refreshVideos} btnStyle={btn} />
@@ -206,7 +218,9 @@ function VideoRow({ v, onUpdated, btnStyle }: { v: Video; onUpdated: () => void;
   const [editing, setEditing] = useState(false)
   const [edit, setEdit] = useState<Video>({ ...v })
 
-  useEffect(() => setEdit({ ...v }), [v.id])
+  useEffect(() => {
+    setEdit({ ...v })
+  }, [v.id])
 
   async function save() {
     try {
@@ -260,4 +274,51 @@ function VideoRow({ v, onUpdated, btnStyle }: { v: Video; onUpdated: () => void;
     return (
       <div className="section" style={{ display: 'grid', gap: 6 }}>
         <div style={{ fontWeight: 700 }}>
-          {v.title} {v.code ? <span style={{ opacity: 0.7, fontWeight: 400 }}>• Kod: {v.code}</span>
+          {v.title}{' '}
+          {v.code ? <span style={{ opacity: 0.7, fontWeight: 400 }}>• Kod: {v.code}</span> : null}
+        </div>
+        <div style={{ fontSize: 13, opacity: 0.85 }}>
+          {(v.category || '—')} {v.isFree ? ' • Bepul' : ` • ${v.price} tanga`}
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button style={btnStyle} onClick={() => setEditing(true)}>Tahrirlash</button>
+          <button style={btnStyle} onClick={remove}>O‘chirish</button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="section" style={{ display: 'grid', gap: 10 }}>
+      <div style={{ fontWeight: 700 }}>Tahrirlash: {edit.title}</div>
+      <input placeholder="Kod" value={edit.code || ''} onChange={e => setEdit({ ...edit, code: e.target.value })} />
+      <input placeholder="Sarlavha" value={edit.title} onChange={e => setEdit({ ...edit, title: e.target.value })} />
+      <textarea placeholder="Tavsif" value={edit.description} onChange={e => setEdit({ ...edit, description: e.target.value })} />
+      <input placeholder="Poster URL yoki file_id" value={edit.thumbUrl || ''} onChange={e => setEdit({ ...edit, thumbUrl: e.target.value })} />
+      <input placeholder="Kategoriya" value={edit.category || ''} onChange={e => setEdit({ ...edit, category: e.target.value })} />
+      <input
+        placeholder="Teglar (vergul bilan)"
+        value={(edit.tags || []).join(', ')}
+        onChange={e => setEdit({ ...edit, tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+      />
+      <input placeholder="Video URL yoki file_id" value={edit.url} onChange={e => setEdit({ ...edit, url: e.target.value })} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input type="checkbox" checked={edit.isFree} onChange={e => setEdit({ ...edit, isFree: e.target.checked })} />
+          Bepul
+        </label>
+        <input
+          type="number"
+          placeholder="Narx"
+          value={String(edit.price ?? 0)}
+          onChange={e => setEdit({ ...edit, price: Number(e.target.value || 0) })}
+        />
+      </div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <button style={btnStyle} onClick={save}>Saqlash</button>
+        <button style={btnStyle} onClick={() => { setEditing(false); setEdit({ ...v }) }}>Bekor qilish</button>
+      </div>
+    </div>
+  )
+}
+```0
