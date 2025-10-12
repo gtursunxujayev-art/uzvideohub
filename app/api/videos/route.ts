@@ -1,13 +1,16 @@
-// app/api/videos/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/src/lib/prisma'
 
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url)
+    // Fix: ensure absolute URL
+    const fullUrl =
+      req.url.startsWith('http')
+        ? req.url
+        : `${req.headers.get('x-forwarded-proto') || 'https'}://${req.headers.get('host')}${req.url}`
+    const { searchParams } = new URL(fullUrl)
     const id = searchParams.get('id')
 
-    // Single video
     if (id) {
       const vid = await prisma.video.findUnique({
         where: { id: Number(id) || -1 },
@@ -18,7 +21,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: true, item: vid })
     }
 
-    // List videos
     const items = await prisma.video.findMany({
       orderBy: { createdAt: 'desc' },
       take: 200,
