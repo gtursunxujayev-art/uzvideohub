@@ -1,6 +1,6 @@
 // app/api/admin/videos/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma' // ← fixed import
+import { prisma } from '@/src/lib/prisma' // ← uses your alias "@/src/*"
 
 function err(message: string, details?: any, status = 400) {
   return NextResponse.json({ ok: false, error: message, details }, { status })
