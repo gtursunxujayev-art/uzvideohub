@@ -47,9 +47,7 @@ export default function VideoPage() {
             setVideo(j.item as Video)
           }
         } catch {
-          if (!cancelled) {
-            setError(`Invalid JSON from server (${res.status}). First chars: ${text.slice(0, 140)}`)
-          }
+          if (!cancelled) setError(`Invalid JSON from server (${res.status}). First chars: ${text.slice(0, 140)}`)
         }
       } catch (e: any) {
         if (!cancelled) setError(String(e?.message || e))
@@ -65,7 +63,6 @@ export default function VideoPage() {
   function openFullscreen() {
     const el = videoRef.current
     if (!el) return
-
     const anyEl = el as any
     if (anyEl.requestFullscreen || anyEl.webkitRequestFullscreen || anyEl.msRequestFullscreen) {
       ;(anyEl.requestFullscreen || anyEl.webkitRequestFullscreen || anyEl.msRequestFullscreen).call(anyEl)
@@ -77,9 +74,7 @@ export default function VideoPage() {
 
   function closeOverlay() {
     setOverlayOpen(false)
-    try {
-      videoRef.current?.pause()
-    } catch {}
+    try { videoRef.current?.pause() } catch {}
   }
 
   if (loading) {
@@ -114,7 +109,7 @@ export default function VideoPage() {
       </h1>
 
       <div style={{ display: 'grid', gap: 12 }}>
-        {/* Wrapper keeps button clickable by keeping it in the stacking context */}
+        {/* Player wrapper (keeps outside button clickable and reserves space) */}
         <div
           style={{
             position: 'relative',
@@ -122,7 +117,7 @@ export default function VideoPage() {
             borderRadius: 12,
             overflow: 'hidden',
             background: 'rgba(255,255,255,0.06)',
-            marginBottom: 34, // reserve space for the “outside” button
+            marginBottom: 34, // space for the outside button
           }}
         >
           {video.url ? (
@@ -130,6 +125,14 @@ export default function VideoPage() {
               ref={videoRef}
               controls
               preload="metadata"
+              // —— security / UX hints —
+              controlsList="nodownload noplaybackrate"
+              disablePictureInPicture
+              // @ts-expect-error: supported in many mobile webviews
+              disableRemotePlayback
+              playsInline
+              // block long-press / context menu
+              onContextMenu={(e) => e.preventDefault()}
               poster={video.thumbUrl ? mediaSrc(video.thumbUrl) : undefined}
               style={{ width: '100%', height: '100%', display: 'block', background: 'black' }}
               src={mediaSrc(video.url)}
@@ -145,17 +148,17 @@ export default function VideoPage() {
             <div style={{ width: '100%', height: '100%' }} />
           )}
 
-          {/* Absolutely positioned button that sits visually OUTSIDE the player */}
+          {/* “To‘liq ekran” button stays OUTSIDE visually, but above the player hitbox */}
           <button
             onClick={openFullscreen}
             aria-label="To‘liq ekran"
             style={{
               position: 'absolute',
               right: 10,
-              bottom: -26, // moves it below the player edge
+              bottom: -26,
               zIndex: 5,
-              background: 'rgba(17,17,17,0.85)',
-              border: '1px solid rgba(255,255,255,0.2)',
+              background: 'rgba(17,17,17,0.88)',
+              border: '1px solid rgba(255,255,255,0.22)',
               color: '#fff',
               padding: '8px 12px',
               borderRadius: 10,
@@ -180,7 +183,7 @@ export default function VideoPage() {
         </div>
       </div>
 
-      {/* Overlay fallback for webviews without Fullscreen API */}
+      {/* Overlay fallback for webviews that lack Fullscreen API */}
       {overlayOpen && (
         <div
           role="dialog"
@@ -196,10 +199,7 @@ export default function VideoPage() {
           }}
         >
           <button
-            onClick={(e) => {
-              e.stopPropagation()
-              closeOverlay()
-            }}
+            onClick={(e) => { e.stopPropagation(); closeOverlay() }}
             aria-label="Yopish"
             style={{
               position: 'absolute',
@@ -220,6 +220,12 @@ export default function VideoPage() {
             controls
             autoPlay
             preload="metadata"
+            controlsList="nodownload noplaybackrate"
+            disablePictureInPicture
+            // @ts-expect-error
+            disableRemotePlayback
+            playsInline
+            onContextMenu={(e) => e.preventDefault()}
             onClick={(e) => e.stopPropagation()}
             poster={video.thumbUrl ? mediaSrc(video.thumbUrl) : undefined}
             style={{
