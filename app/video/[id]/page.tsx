@@ -29,8 +29,6 @@ export default function VideoPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Refs for fullscreen
-  const playerWrapRef = useRef<HTMLDivElement | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [overlayOpen, setOverlayOpen] = useState(false)
 
@@ -64,16 +62,14 @@ export default function VideoPage() {
     }
   }, [id])
 
-  // Native fullscreen helpers with overlay fallback
   function openFullscreen() {
-    const el = playerWrapRef.current
+    const el = videoRef.current
     if (!el) return
 
     const anyEl = el as any
     if (anyEl.requestFullscreen || anyEl.webkitRequestFullscreen || anyEl.msRequestFullscreen) {
       ;(anyEl.requestFullscreen || anyEl.webkitRequestFullscreen || anyEl.msRequestFullscreen).call(anyEl)
     } else {
-      // Fallback overlay
       setOverlayOpen(true)
       setTimeout(() => videoRef.current?.play().catch(() => undefined), 120)
     }
@@ -83,7 +79,6 @@ export default function VideoPage() {
     setOverlayOpen(false)
     try {
       videoRef.current?.pause()
-      videoRef.current?.currentTime && (videoRef.current.currentTime = videoRef.current.currentTime) // keep position
     } catch {}
   }
 
@@ -118,10 +113,9 @@ export default function VideoPage() {
         {video.title} {video.code ? <span style={{ opacity: 0.6, fontWeight: 400 }}>#{video.code}</span> : null}
       </h1>
 
-      <div style={{ display: 'grid', gap: 16 }}>
-        {/* Player wrapper (for native fullscreen) */}
+      <div style={{ display: 'grid', gap: 8 }}>
+        {/* Video box */}
         <div
-          ref={playerWrapRef}
           style={{
             position: 'relative',
             aspectRatio: '16 / 9',
@@ -149,16 +143,14 @@ export default function VideoPage() {
           ) : (
             <div style={{ width: '100%', height: '100%' }} />
           )}
+        </div>
 
-          {/* To‘liq ekran button — bottom center */}
+        {/* Fullscreen button below and right of the player */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
           <button
             onClick={openFullscreen}
             aria-label="To‘liq ekran"
             style={{
-              position: 'absolute',
-              bottom: 12,
-              left: '50%',
-              transform: 'translateX(-50%)',
               background: 'rgba(17,17,17,0.7)',
               border: '1px solid rgba(255,255,255,0.2)',
               color: '#fff',
