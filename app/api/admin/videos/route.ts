@@ -1,6 +1,6 @@
 // app/api/admin/videos/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/src/lib/prisma'
+import { prisma } from '@/lib/prisma' // ← fixed import
 
 function err(message: string, details?: any, status = 400) {
   return NextResponse.json({ ok: false, error: message, details }, { status })
@@ -17,15 +17,16 @@ function isHttpUrl(v?: string | null) {
 }
 function isTgFileId(v?: string | null) {
   if (!v) return false
-  // quick heuristic: Telegram file_id is base64-like with dots/underscores and no scheme
   return !/^https?:\/\//i.test(v) && /^[A-Za-z0-9_-]{10,}$/.test(v)
 }
 
 export async function POST(req: NextRequest) {
   try {
-    // (Optional) simple admin check — you can improve this as you already have auth
-    // If you have a real admin guard, plug it here.
-    const meR = await fetch(new URL('/api/me', req.url).toString(), { headers: req.headers, cache: 'no-store' }).catch(() => null)
+    // minimal admin check via /api/me (adapt to your auth if needed)
+    const meR = await fetch(new URL('/api/me', req.url).toString(), {
+      headers: req.headers,
+      cache: 'no-store',
+    }).catch(() => null)
     const meJ = await meR?.json().catch(() => ({} as any))
     if (!meR?.ok || !meJ?.ok || !meJ?.user?.isAdmin) {
       return err('Only admin can create videos', undefined, 403)
@@ -44,7 +45,6 @@ export async function POST(req: NextRequest) {
       price,
     } = body || {}
 
-    // Validate fields with clear messages
     if (!title || !String(title).trim()) {
       return err('Validation error: "title" is required', { field: 'title' })
     }
@@ -57,10 +57,6 @@ export async function POST(req: NextRequest) {
       return err('Validation error: "url" must be an https link or a Telegram file_id', {
         field: 'url',
         received: url,
-        tips: [
-          'Paste a direct https video link (mp4, m3u8, etc.)',
-          'OR paste a Telegram file_id (send the video to your bot, copy file_id)',
-        ],
       })
     }
 
