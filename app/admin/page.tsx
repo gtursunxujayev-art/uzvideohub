@@ -132,12 +132,13 @@ export default function AdminPage() {
   if (loading) return <div className="container">Yuklanmoqda…</div>
   if (!canUse) return <div className="container">Kirish taqiqlangan</div>
 
-  const btnSm: React.CSSProperties = {
+  // explicit orange button style (no CSS var needed)
+  const btn: React.CSSProperties = {
     padding: '10px 14px',
     fontSize: 14,
     fontWeight: 700,
     borderRadius: 10,
-    background: 'var(--c-accent)',
+    background: '#ffa31a',
     border: '1px solid rgba(255,255,255,0.12)',
     color: '#000',
     cursor: 'pointer'
@@ -165,7 +166,7 @@ export default function AdminPage() {
           <div style={{ fontSize: 12, opacity: 0.75 }}>
             * Musbat son → qo‘shiladi. Manfiy son → ayriladi.
           </div>
-          <button style={btnSm} onClick={giveCoins}>Berish</button>
+          <button style={btn} onClick={giveCoins}>Berish</button>
         </section>
 
         {/* New video */}
@@ -187,13 +188,13 @@ export default function AdminPage() {
           </label>
           <input type="number" placeholder="Narx (tanga)" value={vPrice} onChange={e => setVPrice(e.target.value)} />
 
-          <button style={btnSm} onClick={createVideo}>Qo‘shish</button>
+          <button style={btn} onClick={createVideo}>Qo‘shish</button>
         </section>
 
-        {/* Videos list (read-only rows) */}
+        {/* Videos list – read-only rows (no default edit mode) */}
         <div style={{ display: 'grid', gap: 12 }}>
           {videos.map((v) => (
-            <VideoRow key={v.id} v={v} onUpdated={refreshVideos} btnStyle={btnSm} />
+            <VideoRow key={v.id} v={v} onUpdated={refreshVideos} btnStyle={btn} />
           ))}
         </div>
       </div>
@@ -259,49 +260,4 @@ function VideoRow({ v, onUpdated, btnStyle }: { v: Video; onUpdated: () => void;
     return (
       <div className="section" style={{ display: 'grid', gap: 6 }}>
         <div style={{ fontWeight: 700 }}>
-          {v.title} {v.code ? <span style={{ opacity: 0.7, fontWeight: 400 }}>• Kod: {v.code}</span> : null}
-        </div>
-        <div style={{ fontSize: 13, opacity: 0.85 }}>
-          {(v.category || '—')} {v.isFree ? ' • Bepul' : ` • ${v.price} tanga`}
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button style={btnStyle} onClick={() => setEditing(true)}>Tahrirlash</button>
-          <button style={btnStyle} onClick={remove}>O‘chirish</button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="section" style={{ display: 'grid', gap: 10 }}>
-      <div style={{ fontWeight: 700 }}>Tahrirlash: {edit.title}</div>
-      <input placeholder="Kod" value={edit.code || ''} onChange={e => setEdit({ ...edit, code: e.target.value })} />
-      <input placeholder="Sarlavha" value={edit.title} onChange={e => setEdit({ ...edit, title: e.target.value })} />
-      <textarea placeholder="Tavsif" value={edit.description} onChange={e => setEdit({ ...edit, description: e.target.value })} />
-      <input placeholder="Poster URL yoki file_id" value={edit.thumbUrl || ''} onChange={e => setEdit({ ...edit, thumbUrl: e.target.value })} />
-      <input placeholder="Kategoriya" value={edit.category || ''} onChange={e => setEdit({ ...edit, category: e.target.value })} />
-      <input
-        placeholder="Teglar (vergul bilan)"
-        value={(edit.tags || []).join(', ')}
-        onChange={e => setEdit({ ...edit, tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-      />
-      <input placeholder="Video URL yoki file_id" value={edit.url} onChange={e => setEdit({ ...edit, url: e.target.value })} />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input type="checkbox" checked={edit.isFree} onChange={e => setEdit({ ...edit, isFree: e.target.checked })} />
-          Bepul
-        </label>
-        <input
-          type="number"
-          placeholder="Narx"
-          value={String(edit.price ?? 0)}
-          onChange={e => setEdit({ ...edit, price: Number(e.target.value || 0) })}
-        />
-      </div>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button style={btnStyle} onClick={save}>Saqlash</button>
-        <button style={btnStyle} onClick={() => { setEditing(false); setEdit({ ...v }) }}>Bekor qilish</button>
-      </div>
-    </div>
-  )
-}
+          {v.title} {v.code ? <span style={{ opacity: 0.7, fontWeight: 400 }}>• Kod: {v.code}</span>
