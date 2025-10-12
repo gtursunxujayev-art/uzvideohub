@@ -23,10 +23,8 @@ function mediaSrc(value?: string | null) {
 }
 
 function getBaseUrl() {
-  // Prefer explicit site URL if you set it in Vercel env vars
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
-  // Local dev fallback
   return 'http://localhost:3000'
 }
 
@@ -110,4 +108,3 @@ export default async function Home() {
     </div>
   )
 }
-```0
