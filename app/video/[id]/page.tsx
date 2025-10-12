@@ -164,25 +164,25 @@ export default function VideoPage() {
 
             {/* Custom fullscreen button — SHORT TEXT and just ABOVE native icon */}
             <button
-              onClick={openFullscreen}
-              aria-label="To‘liq"
-              style={{
-                position: 'absolute',
-                right: 10,
-                bottom: liftAboveControlsPx, // lift above native control row
-                zIndex: 3,
-                pointerEvents: 'auto',
-                background: 'rgba(17,17,17,0.85)',
-                border: '1px solid rgba(255,255,255,0.25)',
-                color: '#fff',
-                padding: '6px 10px',
-                borderRadius: 10,
-                fontSize: 12,
-                boxShadow: '0 3px 10px rgba(0,0,0,0.35)',
-              }}
-            >
-              To‘liq
-            </button>
+  onClick={openFullscreen}
+  aria-label="To‘liq"
+  style={{
+    position: 'absolute',
+    right: 10,
+    bottom: liftAboveControlsPx - 20, // lowered by ~20px
+    zIndex: 3,
+    pointerEvents: 'auto',
+    background: 'rgba(17,17,17,0.85)',
+    border: '1px solid rgba(255,255,255,0.25)',
+    color: '#fff',
+    padding: '6px 10px',
+    borderRadius: 10,
+    fontSize: 12,
+    boxShadow: '0 3px 10px rgba(0,0,0,0.35)',
+  }}
+>
+  To‘liq
+</button>
           </div>
 
           <div className="card" style={{ display: 'grid', gap: 8, padding: 14 }}>
