@@ -165,17 +165,17 @@ export default function VideoPage() {
             {/* Custom fullscreen button — SHORT TEXT and just ABOVE native icon */}
             <button
   onClick={openFullscreen}
-  aria-label="To‘liq"
+  aria-label="Full"
   style={{
     position: 'absolute',
-    right: 10,
-    bottom: liftAboveControlsPx - 15, // lowered by ~20px
+    right: 9,
+    bottom: liftAboveControlsPx - 14, // lowered by ~20px
     zIndex: 3,
     pointerEvents: 'auto',
     background: 'rgba(17,17,17,0.85)',
     border: '1px solid rgba(255,255,255,0.25)',
     color: '#fff',
-    padding: '6px 8px',
+    padding: '6px 7px',
     borderRadius: 10,
     fontSize: 12,
     boxShadow: '0 3px 10px rgba(0,0,0,0.35)',
