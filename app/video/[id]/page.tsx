@@ -71,7 +71,6 @@ export default function VideoPage() {
       setTimeout(() => videoRef.current?.play().catch(() => undefined), 120)
     }
   }
-
   function closeOverlay() {
     setOverlayOpen(false)
     try { videoRef.current?.pause() } catch {}
@@ -109,7 +108,7 @@ export default function VideoPage() {
       </h1>
 
       <div style={{ display: 'grid', gap: 12 }}>
-        {/* Player wrapper (keeps outside button clickable and reserves space) */}
+        {/* Player wrapper */}
         <div
           style={{
             position: 'relative',
@@ -117,7 +116,6 @@ export default function VideoPage() {
             borderRadius: 12,
             overflow: 'hidden',
             background: 'rgba(255,255,255,0.06)',
-            marginBottom: 34, // space for the outside button
           }}
         >
           {video.url ? (
@@ -125,7 +123,6 @@ export default function VideoPage() {
               ref={videoRef}
               controls
               preload="metadata"
-              // —— security / UX hints —
               controlsList="nodownload noplaybackrate"
               disablePictureInPicture
               playsInline
@@ -145,27 +142,34 @@ export default function VideoPage() {
             <div style={{ width: '100%', height: '100%' }} />
           )}
 
-          {/* “To‘liq ekran” button outside, under the video */}
-          <button
-            onClick={openFullscreen}
-            aria-label="To‘liq ekran"
+          {/* Overlay layer that doesn't block the native controls */}
+          <div
             style={{
               position: 'absolute',
-              right: 10,
-              bottom: -26,
-              zIndex: 5,
-              background: 'rgba(17,17,17,0.88)',
-              border: '1px solid rgba(255,255,255,0.22)',
-              color: '#fff',
-              padding: '8px 12px',
-              borderRadius: 10,
-              fontSize: 13,
-              pointerEvents: 'auto',
-              boxShadow: '0 3px 10px rgba(0,0,0,0.35)',
+              inset: 0,
+              pointerEvents: 'none', // important: let video controls receive taps
             }}
           >
-            To‘liq ekran
-          </button>
+            <button
+              onClick={openFullscreen}
+              aria-label="To‘liq ekran"
+              style={{
+                position: 'absolute',
+                right: 10,
+                bottom: 10,
+                pointerEvents: 'auto', // re-enable for the button itself
+                background: 'rgba(17,17,17,0.88)',
+                border: '1px solid rgba(255,255,255,0.22)',
+                color: '#fff',
+                padding: '8px 12px',
+                borderRadius: 10,
+                fontSize: 13,
+                boxShadow: '0 3px 10px rgba(0,0,0,0.35)',
+              }}
+            >
+              To‘liq ekran
+            </button>
+          </div>
         </div>
 
         {/* Details */}
@@ -180,7 +184,7 @@ export default function VideoPage() {
         </div>
       </div>
 
-      {/* Overlay fallback for webviews that lack Fullscreen API */}
+      {/* Fallback “fullscreen” overlay for clients without Fullscreen API */}
       {overlayOpen && (
         <div
           role="dialog"
