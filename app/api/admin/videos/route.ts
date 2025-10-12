@@ -1,70 +1,108 @@
 // app/api/admin/videos/route.ts
-import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/src/lib/prisma'
 
-export const runtime = 'nodejs'
-const prisma = new PrismaClient()
-
-type Body = {
-  code?: string
-  title: string
-  description?: string
-  url: string              // can be http(s) or telegram file_id
-  thumbUrl?: string        // http(s) or telegram file_id
-  category?: string
-  tags?: string[]          // optional array
-  isFree?: boolean
-  price?: number
+function err(message: string, details?: any, status = 400) {
+  return NextResponse.json({ ok: false, error: message, details }, { status })
 }
 
-/** very small utility to decide if string is http(s) link or telegram file_id */
-function normalizeMedia(v?: string) {
-  if (!v) return undefined
-  const s = v.trim()
-  if (!s) return undefined
-  // Allow direct url or file_id; store as-is — your UI uses /api/proxy-media for http(s)
-  return s
-}
-
-export async function POST(req: Request) {
+function isHttpUrl(v?: string | null) {
+  if (!v) return false
   try {
-    const b = (await req.json()) as Body
+    const u = new URL(v)
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+function isTgFileId(v?: string | null) {
+  if (!v) return false
+  // quick heuristic: Telegram file_id is base64-like with dots/underscores and no scheme
+  return !/^https?:\/\//i.test(v) && /^[A-Za-z0-9_-]{10,}$/.test(v)
+}
 
-    const title = (b.title || '').trim()
-    const url = normalizeMedia(b.url)
-    if (!title) {
-      return NextResponse.json({ ok: false, error: 'Sarlavha majburiy' }, { status: 400 })
+export async function POST(req: NextRequest) {
+  try {
+    // (Optional) simple admin check — you can improve this as you already have auth
+    // If you have a real admin guard, plug it here.
+    const meR = await fetch(new URL('/api/me', req.url).toString(), { headers: req.headers, cache: 'no-store' }).catch(() => null)
+    const meJ = await meR?.json().catch(() => ({} as any))
+    if (!meR?.ok || !meJ?.ok || !meJ?.user?.isAdmin) {
+      return err('Only admin can create videos', undefined, 403)
     }
-    if (!url) {
-      return NextResponse.json({ ok: false, error: 'Video URL yoki file_id majburiy' }, { status: 400 })
-    }
 
-    const isFree = Boolean(b.isFree)
-    const price = isFree ? 0 : Math.max(0, Number.isFinite(b.price as any) ? Number(b.price) : 0)
-
-    if (!isFree && price <= 0) {
-      return NextResponse.json({ ok: false, error: 'Pullik video uchun narx > 0 bo‘lishi kerak' }, { status: 400 })
-    }
-
-    const data = {
-      code: (b.code || '').trim() || null,
+    const body = await req.json().catch(() => ({}))
+    const {
+      code,
       title,
-      description: (b.description || '').trim(),
+      description = '',
+      thumbUrl,
+      category,
+      tags,
       url,
-      thumbUrl: normalizeMedia(b.thumbUrl) || null,
-      category: (b.category || '').trim() || null,
-      tags: Array.isArray(b.tags) ? b.tags.map(s => String(s).trim()).filter(Boolean) : [],
-      isFree,
+      isFree = false,
       price,
+    } = body || {}
+
+    // Validate fields with clear messages
+    if (!title || !String(title).trim()) {
+      return err('Validation error: "title" is required', { field: 'title' })
+    }
+    if (!url || !String(url).trim()) {
+      return err('Validation error: "url" (video) is required', { field: 'url' })
     }
 
-    const created = await prisma.video.create({ data })
+    const urlOk = isHttpUrl(url) || isTgFileId(url)
+    if (!urlOk) {
+      return err('Validation error: "url" must be an https link or a Telegram file_id', {
+        field: 'url',
+        received: url,
+        tips: [
+          'Paste a direct https video link (mp4, m3u8, etc.)',
+          'OR paste a Telegram file_id (send the video to your bot, copy file_id)',
+        ],
+      })
+    }
+
+    if (thumbUrl) {
+      const thumbOk = isHttpUrl(thumbUrl) || isTgFileId(thumbUrl)
+      if (!thumbOk) {
+        return err('Validation error: "thumbUrl" must be an https link or a Telegram file_id', {
+          field: 'thumbUrl',
+          received: thumbUrl,
+        })
+      }
+    }
+
+    const p = isFree ? 0 : Number(price ?? 0)
+    if (!isFree && (!Number.isFinite(p) || p <= 0)) {
+      return err('Validation error: "price" must be > 0 for paid videos', {
+        field: 'price',
+        received: price,
+      })
+    }
+
+    const created = await prisma.video.create({
+      data: {
+        code: code ? String(code) : null,
+        title: String(title).trim(),
+        description: String(description || '').trim(),
+        thumbUrl: thumbUrl ? String(thumbUrl).trim() : null,
+        category: category ? String(category).trim() : null,
+        tags: Array.isArray(tags)
+          ? (tags as string[]).map(s => String(s).trim()).filter(Boolean)
+          : String(tags || '')
+              .split(',')
+              .map(s => s.trim())
+              .filter(Boolean),
+        url: String(url).trim(),
+        isFree: Boolean(isFree),
+        price: p,
+      },
+    })
+
     return NextResponse.json({ ok: true, item: created })
   } catch (e: any) {
-    // surface prisma details if available
-    return NextResponse.json(
-      { ok: false, error: String(e?.message || e) },
-      { status: 500 },
-    )
+    return err('Server error while creating video', { message: String(e?.message || e) }, 500)
   }
 }
