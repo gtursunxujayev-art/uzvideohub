@@ -16,11 +16,13 @@ type Video = {
   code?: string | null
 }
 
+const proxify = (u?: string | null) =>
+  u && /^https?:\/\//i.test(u) ? `/api/proxy-media?src=${encodeURIComponent(u)}` : undefined
+
 export default function Home() {
   const [list, setList] = useState<Video[]>([])
   const [err, setErr] = useState<string>('')
 
-  // filters (kept simple)
   const [q, setQ] = useState('')
   const [sort, setSort] = useState<'new' | 'price'>('new')
   const [cat, setCat] = useState<string>('')
@@ -54,12 +56,8 @@ export default function Home() {
       const c = cat.trim().toLowerCase()
       arr = arr.filter(v => (v.category || '').toLowerCase().includes(c))
     }
-    if (sort === 'price') {
-      arr.sort((a, b) => (a.price || 0) - (b.price || 0))
-    } else {
-      // newest first assuming id desc ~ created desc
-      arr.sort((a, b) => b.id - a.id)
-    }
+    if (sort === 'price') arr.sort((a, b) => (a.price || 0) - (b.price || 0))
+    else arr.sort((a, b) => b.id - a.id)
     return arr
   }, [list, q, cat, sort])
 
@@ -67,13 +65,8 @@ export default function Home() {
     <div className="container" style={{ display: 'grid', gap: 16 }}>
       <h1 style={{ fontWeight: 800, fontSize: 22, margin: 0 }}>So‘nggi videolar</h1>
 
-      {/* Filters */}
       <div className="section" style={{ display: 'grid', gap: 10 }}>
-        <input
-          placeholder="Qidirish (nom, kod, tavsif)…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
+        <input placeholder="Qidirish (nom, kod, tavsif)…" value={q} onChange={e => setQ(e.target.value)} />
         <div style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr 1fr' }}>
           <select value={cat} onChange={e => setCat(e.target.value)}>
             <option value="">Kategoriya: barchasi</option>
@@ -90,73 +83,68 @@ export default function Home() {
 
       {err && <div className="section" style={{ color: '#ffb4b4' }}>Xatolik: {err}</div>}
 
-      {/* List (single-row cards) */}
       <div style={{ display: 'grid', gap: 14 }}>
-        {filtered.map((v) => (
-          <a
-            key={v.id}
-            href={`/video/${v.id}`}
-            className="card"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '128px 1fr',
-              gap: 12,
-              alignItems: 'center',
-              textDecoration: 'none',
-              color: 'inherit',
-              overflow: 'hidden',
-              minHeight: 92,
-            }}
-          >
-            {/* Thumb with fallback */}
-            {v.thumbUrl && /^https?:\/\//i.test(v.thumbUrl) ? (
-              <img
-                src={v.thumbUrl}
-                alt={v.title}
-                style={{
-                  width: 128,
-                  height: 80,
-                  objectFit: 'cover',
-                  borderRadius: 10,
-                  background: 'rgba(255,255,255,0.06)',
-                }}
-                onError={(e) => {
-                  const el = e.currentTarget
-                  el.style.display = 'none'
-                  const sib = el.nextElementSibling as HTMLElement | null
-                  if (sib) sib.style.display = 'grid'
-                }}
-              />
-            ) : null}
-
-            {/* Fallback block (hidden if image showed) */}
-            <div
+        {filtered.map((v) => {
+          const poster = proxify(v.thumbUrl || '')
+          return (
+            <a
+              key={v.id}
+              href={`/video/${v.id}`}
+              className="card"
               style={{
-                display: v.thumbUrl && /^https?:\/\//i.test(v.thumbUrl) ? 'none' : 'grid',
-                width: 128,
-                height: 80,
-                placeItems: 'center',
-                borderRadius: 10,
-                background: 'rgba(255,255,255,0.08)',
-                fontSize: 12,
-                opacity: 0.8,
+                display: 'grid',
+                gridTemplateColumns: '128px 1fr',
+                gap: 12,
+                alignItems: 'center',
+                textDecoration: 'none',
+                color: 'inherit',
+                overflow: 'hidden',
+                minHeight: 92,
               }}
             >
-              Poster yo‘q
-            </div>
+              {poster ? (
+                <img
+                  src={poster}
+                  alt={v.title}
+                  style={{
+                    width: 128,
+                    height: 80,
+                    objectFit: 'cover',
+                    borderRadius: 10,
+                    background: 'rgba(255,255,255,0.06)',
+                  }}
+                  onError={(e) => {
+                    const el = e.currentTarget
+                    el.style.display = 'none'
+                    const sib = el.nextElementSibling as HTMLElement | null
+                    if (sib) sib.style.display = 'grid'
+                  }}
+                />
+              ) : null}
 
-            {/* Meta */}
-            <div style={{ display: 'grid', gap: 6 }}>
-              <div style={{ fontWeight: 800, fontSize: 16, lineHeight: 1.2 }}>
-                {v.title} {v.code ? <span style={{ opacity: 0.6, fontSize: 13 }}>· #{v.code}</span> : null}
+              <div
+                style={{
+                  display: poster ? 'none' : 'grid',
+                  width: 128, height: 80, placeItems: 'center',
+                  borderRadius: 10, background: 'rgba(255,255,255,0.08)',
+                  fontSize: 12, opacity: 0.8,
+                }}
+              >
+                Poster yo‘q
               </div>
-              <div style={{ fontSize: 13, opacity: 0.8 }}>{v.category || 'Kategoriya yo‘q'}</div>
-              <div style={{ fontSize: 13, color: v.isFree ? '#7fff9e' : '#ffbf69' }}>
-                {v.isFree ? 'Bepul' : `${v.price} tanga`}
+
+              <div style={{ display: 'grid', gap: 6 }}>
+                <div style={{ fontWeight: 800, fontSize: 16, lineHeight: 1.2 }}>
+                  {v.title} {v.code ? <span style={{ opacity: 0.6, fontSize: 13 }}>· #{v.code}</span> : null}
+                </div>
+                <div style={{ fontSize: 13, opacity: 0.8 }}>{v.category || 'Kategoriya yo‘q'}</div>
+                <div style={{ fontSize: 13, color: v.isFree ? '#7fff9e' : '#ffbf69' }}>
+                  {v.isFree ? 'Bepul' : `${v.price} tanga`}
+                </div>
               </div>
-            </div>
-          </a>
-        ))}
+            </a>
+          )
+        })}
       </div>
     </div>
   )
