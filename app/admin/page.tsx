@@ -122,18 +122,10 @@ export default function AdminPage() {
       })
       const txt = await r.text()
       let j: any = {}
-      try { j = JSON.parse(txt) } catch { /* keep raw text in error */ }
+      try { j = JSON.parse(txt) } catch {}
       if (!r.ok || !j?.ok) throw new Error(j?.error || txt || 'Video qo‘shilmadi')
       // reset
-      setVCode('')
-      setVTitle('')
-      setVDesc('')
-      setVThumb('')
-      setVCat('')
-      setVTags('')
-      setVUrl('')
-      setVFree(false)
-      setVPrice('0')
+      setVCode(''); setVTitle(''); setVDesc(''); setVThumb(''); setVCat(''); setVTags(''); setVUrl(''); setVFree(false); setVPrice('0')
       await refreshVideos()
       alert('Video qo‘shildi')
     } catch (e: any) {
@@ -144,7 +136,6 @@ export default function AdminPage() {
   if (loading) return <div className="container">Yuklanmoqda…</div>
   if (!canUse) return <div className="container">Kirish taqiqlangan</div>
 
-  // explicit orange button style (no CSS var needed)
   const btn: React.CSSProperties = {
     padding: '10px 14px',
     fontSize: 14,
@@ -203,7 +194,7 @@ export default function AdminPage() {
           <button style={btn} onClick={createVideo}>Qo‘shish</button>
         </section>
 
-        {/* Videos list – read-only rows until user clicks “Tahrirlash” */}
+        {/* Videos list */}
         <div style={{ display: 'grid', gap: 12 }}>
           {videos.map((v) => (
             <VideoRow key={v.id} v={v} onUpdated={refreshVideos} btnStyle={btn} />
@@ -321,4 +312,3 @@ function VideoRow({ v, onUpdated, btnStyle }: { v: Video; onUpdated: () => void;
     </div>
   )
 }
-```0
