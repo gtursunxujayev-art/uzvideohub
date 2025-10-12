@@ -1,40 +1,31 @@
 // app/api/videos/route.ts
-export const runtime = 'nodejs'
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/src/lib/prisma'
 
-import { NextResponse } from 'next/server'
-import { prisma } from '@/src/lib/db'
-
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
-    const url = new URL(req.url)
-    const limitRaw = url.searchParams.get('limit')
-    const take = Math.min(Math.max(parseInt(limitRaw || '24', 10) || 24, 1), 500)
+    const { searchParams } = new URL(req.url)
+    const id = searchParams.get('id')
 
-    const rows = await prisma.video.findMany({
+    if (id) {
+      const vid = await prisma.video.findUnique({
+        where: { id: Number(id) || -1 },
+      })
+      if (!vid) {
+        return NextResponse.json({ ok: false, error: 'Video topilmadi' }, { status: 404 })
+      }
+      return NextResponse.json({ ok: true, item: vid })
+    }
+
+    const items = await prisma.video.findMany({
       orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        thumbUrl: true,
-        price: true,
-        isFree: true,
-        category: true,
-        code: true,
-      },
-      take,
+      take: 200,
     })
 
-    return NextResponse.json({
-      ok: true,
-      items: rows,
-      total: rows.length,
-      page: 1,
-      limit: take,
-    })
+    return NextResponse.json({ ok: true, items })
   } catch (e: any) {
     return NextResponse.json(
-      { ok: false, error: String(e?.message || e), items: [], total: 0, page: 1, limit: 0 },
+      { ok: false, error: String(e?.message || e) },
       { status: 500 }
     )
   }
