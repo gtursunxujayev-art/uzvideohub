@@ -19,25 +19,29 @@ function mediaSrc(value?: string | null) {
   return `/api/proxy-media?file_id=${encodeURIComponent(value)}`
 }
 
-async function loadVideos(): Promise<Video[]> {
+async function loadVideos(): Promise<{ items: Video[]; error?: string }> {
   try {
     const r = await fetch('/api/videos', { cache: 'no-store' })
-    const j = await r.json()
-    if (!j?.ok) return []
-    return j.items as Video[]
-  } catch {
-    return []
+    const j = await r.json().catch(() => ({ ok: false, error: 'JSON parse failed' }))
+    if (!j?.ok) return { items: [], error: j?.error || 'API error' }
+    return { items: j.items as Video[] }
+  } catch (e: any) {
+    return { items: [], error: String(e?.message || e) }
   }
 }
 
 export default async function Home() {
-  const items = await loadVideos()
+  const { items, error } = await loadVideos()
 
   return (
     <div className="container" style={{ display: 'grid', gap: 16 }}>
       <h1 style={{ fontWeight: 800, fontSize: 24, margin: '8px 0' }}>So‘nggi videolar</h1>
 
-      {items.length === 0 ? (
+      {error ? (
+        <div className="card" style={{ padding: 14, fontSize: 14, color: '#ff6b6b' }}>
+          Xatolik: {error}
+        </div>
+      ) : items.length === 0 ? (
         <div className="card" style={{ padding: 14, fontSize: 14, opacity: 0.85 }}>
           Hozircha videolar yo‘q yoki yuklanmadi.
         </div>
