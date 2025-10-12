@@ -7,6 +7,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
 
+    // Single video
     if (id) {
       const vid = await prisma.video.findUnique({
         where: { id: Number(id) || -1 },
@@ -17,6 +18,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: true, item: vid })
     }
 
+    // List videos
     const items = await prisma.video.findMany({
       orderBy: { createdAt: 'desc' },
       take: 200,
