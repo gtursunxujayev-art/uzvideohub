@@ -113,8 +113,8 @@ export default function VideoPage() {
         {video.title} {video.code ? <span style={{ opacity: 0.6, fontWeight: 400 }}>#{video.code}</span> : null}
       </h1>
 
-      <div style={{ display: 'grid', gap: 8 }}>
-        {/* Video box */}
+      <div style={{ display: 'grid', gap: 12 }}>
+        {/* Wrapper keeps button clickable by keeping it in the stacking context */}
         <div
           style={{
             position: 'relative',
@@ -122,6 +122,7 @@ export default function VideoPage() {
             borderRadius: 12,
             overflow: 'hidden',
             background: 'rgba(255,255,255,0.06)',
+            marginBottom: 34, // reserve space for the “outside” button
           }}
         >
           {video.url ? (
@@ -143,27 +144,31 @@ export default function VideoPage() {
           ) : (
             <div style={{ width: '100%', height: '100%' }} />
           )}
-        </div>
 
-        {/* Fullscreen button below and right of the player */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+          {/* Absolutely positioned button that sits visually OUTSIDE the player */}
           <button
             onClick={openFullscreen}
             aria-label="To‘liq ekran"
             style={{
-              background: 'rgba(17,17,17,0.7)',
+              position: 'absolute',
+              right: 10,
+              bottom: -26, // moves it below the player edge
+              zIndex: 5,
+              background: 'rgba(17,17,17,0.85)',
               border: '1px solid rgba(255,255,255,0.2)',
               color: '#fff',
-              padding: '6px 12px',
-              borderRadius: 8,
+              padding: '8px 12px',
+              borderRadius: 10,
               fontSize: 13,
+              pointerEvents: 'auto',
+              boxShadow: '0 3px 10px rgba(0,0,0,0.35)',
             }}
           >
             To‘liq ekran
           </button>
         </div>
 
-        {/* Details card */}
+        {/* Details */}
         <div className="card" style={{ display: 'grid', gap: 8, padding: 14 }}>
           <div style={{ fontSize: 15, opacity: 0.9 }}>{video.description || '—'}</div>
           <div style={{ fontSize: 13, opacity: 0.8 }}>
@@ -175,7 +180,7 @@ export default function VideoPage() {
         </div>
       </div>
 
-      {/* Overlay fallback fullscreen */}
+      {/* Overlay fallback for webviews without Fullscreen API */}
       {overlayOpen && (
         <div
           role="dialog"
