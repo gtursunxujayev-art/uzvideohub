@@ -24,14 +24,15 @@ function mediaSrc(value?: string | null) {
 export default function VideoPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+
   const [video, setVideo] = useState<Video | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // aspect ratio & fullscreen
-  const vRef = useRef<HTMLVideoElement | null>(null)
-  const [ratio, setRatio] = useState<number | null>(null) // width/height
-  const [fs, setFs] = useState(false) // our custom fullscreen overlay
+  // Refs for fullscreen
+  const playerWrapRef = useRef<HTMLDivElement | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const [overlayOpen, setOverlayOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -63,37 +64,28 @@ export default function VideoPage() {
     }
   }, [id])
 
-  // read real intrinsic video size when metadata is loaded
-  const onLoadedMetadata = () => {
-    const el = vRef.current
+  // Native fullscreen helpers with overlay fallback
+  function openFullscreen() {
+    const el = playerWrapRef.current
     if (!el) return
-    if (el.videoWidth && el.videoHeight) {
-      setRatio(el.videoWidth / el.videoHeight)
+
+    const anyEl = el as any
+    if (anyEl.requestFullscreen || anyEl.webkitRequestFullscreen || anyEl.msRequestFullscreen) {
+      ;(anyEl.requestFullscreen || anyEl.webkitRequestFullscreen || anyEl.msRequestFullscreen).call(anyEl)
+    } else {
+      // Fallback overlay
+      setOverlayOpen(true)
+      setTimeout(() => videoRef.current?.play().catch(() => undefined), 120)
     }
   }
 
-  // try using the native fullscreen API; if blocked, fall back to our overlay
-  const openFullscreen = async () => {
-    const el = vRef.current
-    if (!el) return
-    // Try native fullscreen first
-    const anyEl: any = el
-    const req =
-      el.requestFullscreen ||
-      anyEl.webkitRequestFullscreen ||
-      anyEl.mozRequestFullScreen ||
-      anyEl.msRequestFullscreen
-    if (req) {
-      try {
-        await req.call(el)
-        return
-      } catch {
-        // fall back
-      }
-    }
-    setFs(true)
+  function closeOverlay() {
+    setOverlayOpen(false)
+    try {
+      videoRef.current?.pause()
+      videoRef.current?.currentTime && (videoRef.current.currentTime = videoRef.current.currentTime) // keep position
+    } catch {}
   }
-  const closeOverlay = () => setFs(false)
 
   if (loading) {
     return (
@@ -120,133 +112,131 @@ export default function VideoPage() {
     )
   }
 
-  // compute container height from ratio (fit nicely on page)
-  // If no ratio yet, keep a gentle placeholder height.
-  const pageBoxStyle: React.CSSProperties = ratio
-    ? {
-        width: '100%',
-        height: 'min(65vh, calc((100vw - 32px) / ' + ratio + '))',
-        borderRadius: 12,
-        overflow: 'hidden',
-        background: 'rgba(255,255,255,0.06)',
-      }
-    : {
-        width: '100%',
-        aspectRatio: '16 / 9',
-        borderRadius: 12,
-        overflow: 'hidden',
-        background: 'rgba(255,255,255,0.06)',
-      }
-
   return (
-    <>
-      <div className="container" style={{ display: 'grid', gap: 16 }}>
-        <h1 style={{ fontWeight: 800, fontSize: 24, margin: '8px 0' }}>
-          {video.title} {video.code ? <span style={{ opacity: 0.6, fontWeight: 400 }}>#{video.code}</span> : null}
-        </h1>
+    <div className="container" style={{ display: 'grid', gap: 16 }}>
+      <h1 style={{ fontWeight: 800, fontSize: 24, margin: '8px 0' }}>
+        {video.title} {video.code ? <span style={{ opacity: 0.6, fontWeight: 400 }}>#{video.code}</span> : null}
+      </h1>
 
-        <div style={{ display: 'grid', gap: 16 }}>
-          <div style={pageBoxStyle}>
-            {/* Main inline player */}
+      <div style={{ display: 'grid', gap: 16 }}>
+        {/* Player wrapper (for native fullscreen) */}
+        <div
+          ref={playerWrapRef}
+          style={{
+            position: 'relative',
+            aspectRatio: '16 / 9',
+            borderRadius: 12,
+            overflow: 'hidden',
+            background: 'rgba(255,255,255,0.06)',
+          }}
+        >
+          {video.url ? (
             <video
-              ref={vRef}
+              ref={videoRef}
               controls
-              playsInline
               preload="metadata"
               poster={video.thumbUrl ? mediaSrc(video.thumbUrl) : undefined}
-              onLoadedMetadata={onLoadedMetadata}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'contain', // show full video even when vertical/landscape mismatches
-                display: 'block',
-                background: 'black',
-              }}
+              style={{ width: '100%', height: '100%', display: 'block', background: 'black' }}
               src={mediaSrc(video.url)}
             />
+          ) : video.thumbUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={mediaSrc(video.thumbUrl)}
+              alt={video.title}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          ) : (
+            <div style={{ width: '100%', height: '100%' }} />
+          )}
 
-            {/* Custom fullscreen button (top-right) */}
-            <button
-              onClick={openFullscreen}
-              aria-label="To‘liq ekran"
-              style={{
-                position: 'absolute',
-                right: 10,
-                top: 10,
-                background: 'rgba(17,17,17,0.7)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                color: '#fff',
-                padding: '6px 10px',
-                borderRadius: 8,
-                fontSize: 12,
-              }}
-            >
-              To‘liq ekran
-            </button>
+          {/* To‘liq ekran button — bottom center */}
+          <button
+            onClick={openFullscreen}
+            aria-label="To‘liq ekran"
+            style={{
+              position: 'absolute',
+              bottom: 12,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'rgba(17,17,17,0.7)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              color: '#fff',
+              padding: '6px 12px',
+              borderRadius: 8,
+              fontSize: 13,
+            }}
+          >
+            To‘liq ekran
+          </button>
+        </div>
+
+        {/* Details card */}
+        <div className="card" style={{ display: 'grid', gap: 8, padding: 14 }}>
+          <div style={{ fontSize: 15, opacity: 0.9 }}>{video.description || '—'}</div>
+          <div style={{ fontSize: 13, opacity: 0.8 }}>
+            {video.category ? `Kategoriya: ${video.category}` : 'Kategoriya: —'}
           </div>
-
-          <div className="card" style={{ display: 'grid', gap: 8, padding: 14 }}>
-            <div style={{ fontSize: 15, opacity: 0.9 }}>{video.description || '—'}</div>
-            <div style={{ fontSize: 13, opacity: 0.8 }}>
-              {video.category ? `Kategoriya: ${video.category}` : 'Kategoriya: —'}
-            </div>
-            <div style={{ fontSize: 13, color: '#f9b24e' }}>
-              {video.isFree ? 'Bepul' : `${video.price} tanga`}
-            </div>
+          <div style={{ fontSize: 13, color: '#f9b24e' }}>
+            {video.isFree ? 'Bepul' : `${video.price} tanga`}
           </div>
         </div>
       </div>
 
-      {/* Fullscreen overlay fallback */}
-      {fs && (
+      {/* Overlay fallback fullscreen */}
+      {overlayOpen && (
         <div
-          onClick={closeOverlay}
           role="dialog"
-          aria-label="Fullscreen video"
+          aria-modal="true"
+          onClick={closeOverlay}
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.98)',
-            zIndex: 1000,
+            background: 'rgba(0,0,0,0.96)',
+            zIndex: 9999,
             display: 'grid',
             placeItems: 'center',
           }}
         >
-          <video
-            controls
-            autoPlay
-            playsInline
-            preload="metadata"
-            poster={video.thumbUrl ? mediaSrc(video.thumbUrl) : undefined}
-            style={{
-              width: '100vw',
-              height: '100vh',
-              objectFit: 'contain',
-              background: 'black',
-            }}
-            src={mediaSrc(video.url)}
-            onClick={(e) => e.stopPropagation()}
-          />
           <button
-            onClick={closeOverlay}
+            onClick={(e) => {
+              e.stopPropagation()
+              closeOverlay()
+            }}
             aria-label="Yopish"
             style={{
-              position: 'fixed',
-              top: 12,
-              right: 12,
-              background: 'rgba(255,255,255,0.12)',
+              position: 'absolute',
+              right: 16,
+              top: 16,
+              background: 'rgba(17,17,17,0.7)',
+              border: '1px solid rgba(255,255,255,0.2)',
               color: '#fff',
-              border: '1px solid rgba(255,255,255,0.25)',
-              borderRadius: 10,
-              padding: '8px 12px',
+              padding: '6px 10px',
+              borderRadius: 8,
               fontSize: 13,
-              zIndex: 1001,
             }}
           >
             Yopish
           </button>
+
+          <video
+            controls
+            autoPlay
+            preload="metadata"
+            onClick={(e) => e.stopPropagation()}
+            poster={video.thumbUrl ? mediaSrc(video.thumbUrl) : undefined}
+            style={{
+              width: '100%',
+              maxWidth: 1200,
+              maxHeight: '80vh',
+              display: 'block',
+              background: 'black',
+              borderRadius: 12,
+            }}
+            src={mediaSrc(video.url)}
+          />
         </div>
       )}
-    </>
+    </div>
   )
 }
