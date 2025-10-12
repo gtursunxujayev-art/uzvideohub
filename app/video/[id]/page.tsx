@@ -128,10 +128,7 @@ export default function VideoPage() {
               // —— security / UX hints —
               controlsList="nodownload noplaybackrate"
               disablePictureInPicture
-              // @ts-expect-error: supported in many mobile webviews
-              disableRemotePlayback
               playsInline
-              // block long-press / context menu
               onContextMenu={(e) => e.preventDefault()}
               poster={video.thumbUrl ? mediaSrc(video.thumbUrl) : undefined}
               style={{ width: '100%', height: '100%', display: 'block', background: 'black' }}
@@ -148,7 +145,7 @@ export default function VideoPage() {
             <div style={{ width: '100%', height: '100%' }} />
           )}
 
-          {/* “To‘liq ekran” button stays OUTSIDE visually, but above the player hitbox */}
+          {/* “To‘liq ekran” button outside, under the video */}
           <button
             onClick={openFullscreen}
             aria-label="To‘liq ekran"
@@ -222,8 +219,6 @@ export default function VideoPage() {
             preload="metadata"
             controlsList="nodownload noplaybackrate"
             disablePictureInPicture
-            // @ts-expect-error
-            disableRemotePlayback
             playsInline
             onContextMenu={(e) => e.preventDefault()}
             onClick={(e) => e.stopPropagation()}
