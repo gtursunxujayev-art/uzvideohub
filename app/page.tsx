@@ -1,4 +1,6 @@
-// app/page.tsx
+'use client'
+
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
 type Video = {
@@ -19,49 +21,50 @@ function mediaSrc(value?: string | null) {
   return `/api/proxy-media?file_id=${encodeURIComponent(value)}`
 }
 
-function getBaseUrl() {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
-  return 'http://localhost:3000'
-}
+export default function Home() {
+  const [items, setItems] = useState<Video[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
-async function loadVideos(): Promise<{ items: Video[]; error?: string }> {
-  try {
-    const url = `${getBaseUrl()}/api/videos`
-    const res = await fetch(url, { cache: 'no-store' })
-
-    // Check if response is actually JSON
-    const text = await res.text()
-    try {
-      const json = JSON.parse(text)
-      if (!json?.ok) return { items: [], error: json?.error || 'API returned error' }
-      return { items: json.items as Video[] }
-    } catch {
-      return {
-        items: [],
-        error: `Invalid JSON from server (${res.status}) — maybe HTML or redirect.\nResponse: ${text.slice(
-          0,
-          200
-        )}`,
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/videos', { cache: 'no-store' })
+        const text = await res.text()
+        try {
+          const j = JSON.parse(text)
+          if (!j?.ok) {
+            if (!cancelled) setError(j?.error || 'API returned error')
+          } else if (!cancelled) {
+            setItems(j.items as Video[])
+          }
+        } catch {
+          if (!cancelled) {
+            setError(`Invalid JSON from server (${res.status}). First chars: ${text.slice(0, 140)}`)
+          }
+        }
+      } catch (e: any) {
+        if (!cancelled) setError(String(e?.message || e))
+      } finally {
+        if (!cancelled) setLoading(false)
       }
+    })()
+    return () => {
+      cancelled = true
     }
-  } catch (e: any) {
-    return { items: [], error: String(e?.message || e) }
-  }
-}
-
-export default async function Home() {
-  const { items, error } = await loadVideos()
+  }, [])
 
   return (
     <div className="container" style={{ display: 'grid', gap: 16 }}>
       <h1 style={{ fontWeight: 800, fontSize: 24, margin: '8px 0' }}>So‘nggi videolar</h1>
 
-      {error ? (
-        <div
-          className="card"
-          style={{ padding: 14, fontSize: 14, color: '#ff6b6b', whiteSpace: 'pre-wrap' }}
-        >
+      {loading ? (
+        <div className="card" style={{ padding: 14, fontSize: 14, opacity: 0.85 }}>
+          Yuklanmoqda…
+        </div>
+      ) : error ? (
+        <div className="card" style={{ padding: 14, fontSize: 14, color: '#ff6b6b', whiteSpace: 'pre-wrap' }}>
           Xatolik: {error}
         </div>
       ) : items.length === 0 ? (
@@ -71,11 +74,7 @@ export default async function Home() {
       ) : (
         <div style={{ display: 'grid', gap: 14 }}>
           {items.map((v) => (
-            <Link
-              key={v.id}
-              href={`/video/${v.id}`}
-              style={{ textDecoration: 'none', color: 'inherit' }}
-            >
+            <Link key={v.id} href={`/video/${v.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
               <div className="card" style={{ display: 'grid', gap: 10 }}>
                 <div
                   style={{
@@ -90,11 +89,11 @@ export default async function Home() {
                     <img
                       src={mediaSrc(v.thumbUrl)}
                       alt={v.title}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        display: 'block',
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      onError={(e) => {
+                        // fallback if proxy fails
+                        const el = e.currentTarget
+                        el.style.display = 'none'
                       }}
                     />
                   ) : (
@@ -104,15 +103,10 @@ export default async function Home() {
 
                 <div style={{ display: 'grid', gap: 4 }}>
                   <div style={{ fontWeight: 700 }}>
-                    {v.title}{' '}
-                    {v.code ? (
-                      <span style={{ opacity: 0.6, fontWeight: 400 }}>#{v.code}</span>
-                    ) : null}
+                    {v.title} {v.code ? <span style={{ opacity: 0.6, fontWeight: 400 }}>#{v.code}</span> : null}
                   </div>
                   <div style={{ fontSize: 13, opacity: 0.8 }}>{v.category || '—'}</div>
-                  <div style={{ fontSize: 13, color: '#f9b24e' }}>
-                    {v.isFree ? 'Bepul' : `${v.price} tanga`}
-                  </div>
+                  <div style={{ fontSize: 13, color: '#f9b24e' }}>{v.isFree ? 'Bepul' : `${v.price} tanga`}</div>
                 </div>
               </div>
             </Link>
