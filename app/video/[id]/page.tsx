@@ -169,7 +169,7 @@ export default function VideoPage() {
   style={{
     position: 'absolute',
     right: 10,
-    bottom: liftAboveControlsPx - 20, // lowered by ~20px
+    bottom: liftAboveControlsPx - 25, // lowered by ~20px
     zIndex: 3,
     pointerEvents: 'auto',
     background: 'rgba(17,17,17,0.85)',
