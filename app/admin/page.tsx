@@ -41,7 +41,7 @@ export default function AdminPage() {
   const [vFree, setVFree] = useState(false)
   const [vPrice, setVPrice] = useState('0')
 
-  // On mount: load me, users, videos
+  // load data
   useEffect(() => {
     ;(async () => {
       try {
@@ -66,7 +66,6 @@ export default function AdminPage() {
     })()
   }, [])
 
-  // Helpers
   const canUse = useMemo(() => Boolean(me?.isAdmin), [me])
 
   async function refreshVideos() {
@@ -75,7 +74,6 @@ export default function AdminPage() {
     if (r.ok && j?.ok) setVideos(j.items as Video[])
   }
 
-  // Actions
   async function giveCoins() {
     if (!giveTo || !amount) return
     try {
@@ -94,58 +92,51 @@ export default function AdminPage() {
     }
   }
 
+  // validate before create
+  function validateCreate(): { ok: boolean; msg?: string } {
+    if (!vTitle.trim()) return { ok: false, msg: 'Sarlavha majburiy' }
+    if (!vUrl.trim()) return { ok: false, msg: 'Video URL yoki file_id majburiy' }
+    if (!vFree) {
+      const p = Number(vPrice)
+      if (!Number.isFinite(p) || p <= 0) return { ok: false, msg: 'Pullik video uchun narx > 0 bo‘lishi kerak' }
+    }
+    return { ok: true }
+  }
+
   async function createVideo() {
+    const val = validateCreate()
+    if (!val.ok) {
+      alert(val.msg)
+      return
+    }
     try {
       const body = {
         code: vCode || undefined,
-        title: vTitle,
-        description: vDesc || '',
-        thumbUrl: vThumb || undefined,
-        category: vCat || undefined,
+        title: vTitle.trim(),
+        description: vDesc.trim(),
+        thumbUrl: vThumb.trim() || undefined,
+        category: vCat.trim() || undefined,
         tags: vTags ? vTags.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-        url: vUrl,
+        url: vUrl.trim(),
         isFree: vFree,
-        price: Number(vPrice || 0),
+        price: vFree ? 0 : Number(vPrice || 0),
       }
       const r = await fetch('/api/admin/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const j = await r.json().catch(() => ({}))
-      if (!r.ok || !j?.ok) throw new Error(j?.error || 'Video qo‘shilmadi')
+      const text = await r.text()
+      let j: any = {}
+      try { j = JSON.parse(text) } catch { /* keep raw text */ }
+      if (!r.ok || !j?.ok) {
+        const serverMsg = j?.error || text || 'Video qo‘shilmadi'
+        throw new Error(serverMsg)
+      }
       // reset
       setVCode(''); setVTitle(''); setVDesc(''); setVThumb(''); setVCat(''); setVTags(''); setVUrl(''); setVFree(false); setVPrice('0')
       await refreshVideos()
       alert('Video qo‘shildi')
-    } catch (e: any) {
-      alert(String(e?.message || e))
-    }
-  }
-
-  async function updateVideo(v: Video) {
-    try {
-      const r = await fetch(`/api/admin/videos/${v.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(v),
-      })
-      const j = await r.json().catch(() => ({}))
-      if (!r.ok || !j?.ok) throw new Error(j?.error || 'Yangilab bo‘lmadi')
-      await refreshVideos()
-      alert('Video yangilandi')
-    } catch (e: any) {
-      alert(String(e?.message || e))
-    }
-  }
-
-  async function deleteVideo(id: number) {
-    if (!confirm('O‘chirishni tasdiqlang')) return
-    try {
-      const r = await fetch(`/api/admin/videos/${id}`, { method: 'DELETE' })
-      const j = await r.json().catch(() => ({}))
-      if (!r.ok || !j?.ok) throw new Error(j?.error || 'O‘chirishda xatolik')
-      await refreshVideos()
     } catch (e: any) {
       alert(String(e?.message || e))
     }
@@ -156,7 +147,6 @@ export default function AdminPage() {
 
   return (
     <div className="container" style={{ display: 'grid', gap: 16, paddingBottom: 32, overflowX: 'hidden' }}>
-      {/* Mobile-first max width wrapper */}
       <div style={{ width: 'min(780px, 100%)', margin: '0 auto', display: 'grid', gap: 16 }}>
         <h1 style={{ fontWeight: 800, fontSize: 22, margin: 0 }}>Admin</h1>
 
@@ -172,15 +162,10 @@ export default function AdminPage() {
                 </option>
               ))}
             </select>
-            <input
-              type="number"
-              placeholder="Miqdor"
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-            />
+            <input type="number" placeholder="Miqdor" value={amount} onChange={e => setAmount(e.target.value)} />
           </div>
           <div style={{ fontSize: 12, opacity: 0.75 }}>
-            * Musbat son berilsa → qo‘shiladi. Manfiy son berilsa → ayriladi. Masalan, -5 foydalanuvchidan 5 tanga ayiradi.
+            * Musbat son → qo‘shiladi. Manfiy son → ayriladi. Masalan, -5 foydalanuvchidan 5 tanga ayiradi.
           </div>
           <button className="btn" onClick={giveCoins}>Berish</button>
         </section>
@@ -207,10 +192,10 @@ export default function AdminPage() {
           <button className="btn" onClick={createVideo}>Qo‘shish</button>
         </section>
 
-        {/* Videos list */}
+        {/* Videos list (READ-ONLY by default) */}
         <div style={{ display: 'grid', gap: 12 }}>
           {videos.map((v) => (
-            <VideoRow key={v.id} v={v} onSave={updateVideo} onDelete={() => deleteVideo(v.id)} />
+            <VideoRow key={v.id} v={v} onUpdated={refreshVideos} />
           ))}
         </div>
       </div>
@@ -218,49 +203,107 @@ export default function AdminPage() {
   )
 }
 
-function VideoRow({ v, onSave, onDelete }: { v: Video; onSave: (v: Video) => void; onDelete: () => void }) {
+function VideoRow({ v, onUpdated }: { v: Video; onUpdated: () => void }) {
+  const [editing, setEditing] = useState(false)
   const [edit, setEdit] = useState<Video>({ ...v })
 
-  return (
-    <div className="section" style={{ display: 'grid', gap: 10 }}>
-      <div style={{ fontWeight: 700, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {edit.title}
-        <span style={{ opacity: 0.7, fontWeight: 400 }}>
-          {edit.code ? ` • Kod: ${edit.code}` : ''} {edit.isFree ? ' • Bepul' : ` • ${edit.price} tanga`}
-        </span>
-      </div>
+  useEffect(() => setEdit({ ...v }), [v.id]) // sync if list refreshes
 
-      {/* Compact, mobile-first grid */}
-      <div style={{ display: 'grid', gap: 10 }}>
-        <input placeholder="Kod" value={edit.code || ''} onChange={e => setEdit({ ...edit, code: e.target.value })} />
-        <input placeholder="Sarlavha" value={edit.title} onChange={e => setEdit({ ...edit, title: e.target.value })} />
-        <textarea placeholder="Tavsif" value={edit.description} onChange={e => setEdit({ ...edit, description: e.target.value })} />
-        <input placeholder="Poster URL yoki file_id" value={edit.thumbUrl || ''} onChange={e => setEdit({ ...edit, thumbUrl: e.target.value })} />
-        <input placeholder="Kategoriya" value={edit.category || ''} onChange={e => setEdit({ ...edit, category: e.target.value })} />
-        <input
-          placeholder="Teglar (vergul bilan)"
-          value={(edit.tags || []).join(', ')}
-          onChange={e => setEdit({ ...edit, tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-        />
-        <input placeholder="Video URL yoki file_id" value={edit.url} onChange={e => setEdit({ ...edit, url: e.target.value })} />
+  async function save() {
+    try {
+      if (!edit.title.trim()) throw new Error('Sarlavha majburiy')
+      if (!edit.url.trim()) throw new Error('Video URL yoki file_id majburiy')
+      if (!edit.isFree && (!Number.isFinite(edit.price) || edit.price <= 0)) {
+        throw new Error('Pullik video uchun narx > 0 bo‘lishi kerak')
+      }
+      const body = {
+        ...edit,
+        title: edit.title.trim(),
+        description: (edit.description || '').trim(),
+        thumbUrl: (edit.thumbUrl || '').trim() || undefined,
+        category: (edit.category || '').trim() || undefined,
+        tags: (edit.tags || []).map(s => String(s).trim()).filter(Boolean),
+        url: edit.url.trim(),
+        price: edit.isFree ? 0 : Number(edit.price || 0),
+      }
+      const r = await fetch(`/api/admin/videos/${edit.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const txt = await r.text()
+      let j: any = {}
+      try { j = JSON.parse(txt) } catch {}
+      if (!r.ok || !j?.ok) throw new Error(j?.error || txt || 'Yangilab bo‘lmadi')
+      setEditing(false)
+      await onUpdated()
+    } catch (e: any) {
+      alert(String(e?.message || e))
+    }
+  }
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input type="checkbox" checked={edit.isFree} onChange={e => setEdit({ ...edit, isFree: e.target.checked })} />
-            Bepul
-          </label>
-          <input
-            type="number"
-            placeholder="Narx"
-            value={String(edit.price ?? 0)}
-            onChange={e => setEdit({ ...edit, price: Number(e.target.value || 0) })}
-          />
+  async function remove() {
+    if (!confirm('O‘chirishni tasdiqlang')) return
+    try {
+      const r = await fetch(`/api/admin/videos/${edit.id}`, { method: 'DELETE' })
+      const txt = await r.text()
+      let j: any = {}
+      try { j = JSON.parse(txt) } catch {}
+      if (!r.ok || !j?.ok) throw new Error(j?.error || txt || 'O‘chirishda xatolik')
+      await onUpdated()
+    } catch (e: any) {
+      alert(String(e?.message || e))
+    }
+  }
+
+  if (!editing) {
+    // READ-ONLY ROW
+    return (
+      <div className="section" style={{ display: 'grid', gap: 8 }}>
+        <div style={{ fontWeight: 700 }}>
+          {v.title} {v.code ? <span style={{ opacity: 0.7, fontWeight: 400 }}>• Kod: {v.code}</span> : null}
+        </div>
+        <div style={{ fontSize: 13, opacity: 0.85 }}>
+          {(v.category || '—')} {v.isFree ? ' • Bepul' : ` • ${v.price} tanga`}
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button className="btn" onClick={() => setEditing(true)}>Tahrirlash</button>
+          <button className="btn" onClick={remove}>O‘chirish</button>
         </div>
       </div>
+    )
+  }
 
+  // EDIT MODE (only after user clicks "Tahrirlash")
+  return (
+    <div className="section" style={{ display: 'grid', gap: 10 }}>
+      <div style={{ fontWeight: 700 }}>Tahrirlash: {edit.title}</div>
+      <input placeholder="Kod" value={edit.code || ''} onChange={e => setEdit({ ...edit, code: e.target.value })} />
+      <input placeholder="Sarlavha" value={edit.title} onChange={e => setEdit({ ...edit, title: e.target.value })} />
+      <textarea placeholder="Tavsif" value={edit.description} onChange={e => setEdit({ ...edit, description: e.target.value })} />
+      <input placeholder="Poster URL yoki file_id" value={edit.thumbUrl || ''} onChange={e => setEdit({ ...edit, thumbUrl: e.target.value })} />
+      <input placeholder="Kategoriya" value={edit.category || ''} onChange={e => setEdit({ ...edit, category: e.target.value })} />
+      <input
+        placeholder="Teglar (vergul bilan)"
+        value={(edit.tags || []).join(', ')}
+        onChange={e => setEdit({ ...edit, tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+      />
+      <input placeholder="Video URL yoki file_id" value={edit.url} onChange={e => setEdit({ ...edit, url: e.target.value })} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input type="checkbox" checked={edit.isFree} onChange={e => setEdit({ ...edit, isFree: e.target.checked })} />
+          Bepul
+        </label>
+        <input
+          type="number"
+          placeholder="Narx"
+          value={String(edit.price ?? 0)}
+          onChange={e => setEdit({ ...edit, price: Number(e.target.value || 0) })}
+        />
+      </div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button className="btn" onClick={() => onSave(edit)}>Tahrirlash</button>
-        <button className="btn" onClick={onDelete}>O‘chirish</button>
+        <button className="btn" onClick={save}>Saqlash</button>
+        <button className="btn" onClick={() => { setEditing(false); setEdit({ ...v }) }}>Bekor qilish</button>
       </div>
     </div>
   )
