@@ -64,7 +64,7 @@ export default function Nav() {
           <span style={{ ...barStyle, marginTop: 4 }} />
         </button>
 
-        {/* Center: brand (centered by grid) */}
+        {/* Center: brand */}
         <div style={{ justifySelf: 'center' }}>
           <Link
             href="/"
@@ -84,7 +84,7 @@ export default function Nav() {
           </Link>
         </div>
 
-        {/* Right: balance (pinned to far right) */}
+        {/* Right: balance */}
         <div style={{ justifySelf: 'end', paddingRight: 2 }}>
           <div
             title="Hisob"
@@ -161,6 +161,9 @@ export default function Nav() {
           <MenuItem href="/profile" label="Profil" onClick={() => setOpen(false)} />
           <MenuItem href="/library" label="Saqlangan videolar" onClick={() => setOpen(false)} />
           <MenuItem href="/reyting" label="Reyting" onClick={() => setOpen(false)} />
+          {me?.isAdmin ? (
+            <MenuItem href="/admin" label="Admin" onClick={() => setOpen(false)} />
+          ) : null}
         </nav>
       </div>
     </>
