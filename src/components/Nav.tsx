@@ -10,11 +10,9 @@ export default function Nav() {
   const [me, setMe] = useState<Me>(null)
   const [open, setOpen] = useState(false)
 
-  // swipe-to-close logic
+  // swipe-to-close for the drawer
   const startX = useRef<number | null>(null)
-  const onTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    startX.current = e.touches[0].clientX
-  }
+  const onTouchStart = (e: React.TouchEvent<HTMLDivElement>) => { startX.current = e.touches[0].clientX }
   const onTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     if (startX.current == null) return
     const dx = e.touches[0].clientX - startX.current
@@ -28,9 +26,7 @@ export default function Nav() {
         const r = await fetch('/api/me', { cache: 'no-store' })
         const j = await r.json().catch(() => ({}))
         setMe(r.ok && j?.ok ? (j.user as Me) : null)
-      } catch {
-        setMe(null)
-      }
+      } catch { setMe(null) }
     })()
   }, [])
 
@@ -38,18 +34,19 @@ export default function Nav() {
 
   return (
     <>
-      {/* Top bar */}
+      {/* Top bar: 3 columns -> left icon, center brand, right balance */}
       <header
         className="section"
         style={{
           background: 'linear-gradient(180deg, rgba(0,0,0,0.65), rgba(0,0,0,0.35))',
           border: '1px solid rgba(255,255,255,0.08)',
           display: 'grid',
-          gridTemplateColumns: '48px 1fr 48px',
+          gridTemplateColumns: '48px 1fr auto',
           alignItems: 'center',
-          position: 'relative',
           height: 56,
           borderRadius: 12,
+          paddingInline: 6,
+          gap: 6,
         }}
       >
         {/* Left: hamburger */}
@@ -57,7 +54,7 @@ export default function Nav() {
           aria-label="Menyu"
           onClick={() => setOpen(true)}
           style={{
-            width: 40, height: 40, marginLeft: 4,
+            width: 40, height: 40,
             display: 'grid', placeItems: 'center',
             background: 'transparent', border: 'none', cursor: 'pointer',
           }}
@@ -67,18 +64,11 @@ export default function Nav() {
           <span style={{ ...barStyle, marginTop: 4 }} />
         </button>
 
-        {/* Center: Brand */}
-        <div
-          style={{
-            position: 'absolute', inset: 0,
-            display: 'grid', placeItems: 'center',
-            pointerEvents: 'none',
-          }}
-        >
+        {/* Center: brand (centered by grid) */}
+        <div style={{ justifySelf: 'center' }}>
           <Link
             href="/"
             style={{
-              pointerEvents: 'auto',
               textDecoration: 'none',
               color: 'inherit',
               fontWeight: 900,
@@ -94,8 +84,8 @@ export default function Nav() {
           </Link>
         </div>
 
-        {/* Right: Balance */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingRight: 8 }}>
+        {/* Right: balance (pinned to far right) */}
+        <div style={{ justifySelf: 'end', paddingRight: 2 }}>
           <div
             title="Hisob"
             style={{
@@ -166,7 +156,7 @@ export default function Nav() {
           </button>
         </div>
 
-        {/* Drawer items (compact, single row) */}
+        {/* Drawer items (compact) */}
         <nav style={{ padding: '8px 6px' }}>
           <MenuItem href="/profile" label="Profil" onClick={() => setOpen(false)} />
           <MenuItem href="/library" label="Saqlangan videolar" onClick={() => setOpen(false)} />
