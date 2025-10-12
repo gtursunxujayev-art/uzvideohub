@@ -20,6 +20,9 @@ type Video = {
 
 type Me = { id: number; username?: string | null; coins: number } | null
 
+const proxify = (u?: string | null) =>
+  u && /^https?:\/\//i.test(u) ? `/api/proxy-media?src=${encodeURIComponent(u)}` : undefined
+
 export default function VideoPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -35,20 +38,16 @@ export default function VideoPage() {
       try {
         setLoading(true)
         setErr('')
-
-        // Load video
         const vRes = await fetch(`/api/videos/${id}`, { cache: 'no-store' })
         const vJ = await vRes.json()
         if (!vRes.ok || !vJ?.ok) throw new Error(vJ?.error || 'Video topilmadi')
         if (stop) return
         setVideo(vJ.item)
 
-        // Load me (if logged in via Telegram webapp cookie)
         const meRes = await fetch('/api/me', { cache: 'no-store' })
         const meJ = await meRes.json().catch(() => ({}))
         if (!stop) setMe(meRes.ok && meJ?.ok ? meJ.user : null)
 
-        // Check purchase / free
         const chkRes = await fetch(`/api/purchase/check?id=${encodeURIComponent(String(vJ.item.id))}`, { cache: 'no-store' })
         const chkJ = await chkRes.json().catch(() => ({}))
         if (!stop) setOwned(Boolean(chkJ?.owned || vJ.item.isFree))
@@ -72,7 +71,6 @@ export default function VideoPage() {
       })
       const j = await r.json().catch(() => ({}))
       if (!r.ok || !j?.ok) throw new Error(j?.error || 'Sotib olish muvaffaqiyatsiz')
-      // Success: mark owned, refresh me balance
       setOwned(true)
       const meRes = await fetch('/api/me', { cache: 'no-store' })
       const meJ = await meRes.json().catch(() => ({}))
@@ -80,7 +78,6 @@ export default function VideoPage() {
     } catch (e: any) {
       setErr(String(e?.message || e))
       if (String(e?.message || '').toLowerCase().includes('balance') || String(e?.message || '').includes('tanga')) {
-        // optional: redirect to buy-coins page/bot
         window.open('https://t.me/videohubtolovbot', '_blank')
       }
     }
@@ -90,45 +87,42 @@ export default function VideoPage() {
   if (err) return <div className="container">Xatolik: {err}</div>
   if (!video) return <div className="container">Video topilmadi</div>
 
-  const isDirectUrl = typeof video.url === 'string' && /^https?:\/\//i.test(video.url)
+  const videoSrc = proxify(video.url)
+  const poster = proxify(video.thumbUrl || '')
 
   return (
     <div className="container" style={{ display: 'grid', gap: 14 }}>
-      {/* Title row */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
         <h1 style={{ fontWeight: 800, fontSize: 22, margin: 0 }}>{video.title}</h1>
         {video.code ? <span style={{ opacity: 0.7, fontSize: 14 }}>#{video.code}</span> : null}
       </div>
 
-      {/* Video / Paywall */}
       <div className="card" style={{ overflow: 'hidden' }}>
         <div className="thumb" style={{ position: 'relative' }}>
           {owned ? (
-            isDirectUrl ? (
+            videoSrc ? (
               <video
-                src={video.url}
+                src={videoSrc}
                 controls
                 style={{ width: '100%', height: '100%' }}
-                poster={video.thumbUrl && /^https?:\/\//i.test(video.thumbUrl) ? video.thumbUrl : undefined}
+                poster={poster}
               />
             ) : (
               <div style={{ padding: 12, fontSize: 13, opacity: 0.85 }}>
-                Bu videoni ko‘rsatish uchun Telegram fayl proksisi kerak (keyingi bosqichda yoqamiz).
+                Video URL mos kelmadi.
               </div>
             )
           ) : (
             <>
-              {/* Locked state: show poster or gray box */}
-              {video.thumbUrl && /^https?:\/\//i.test(video.thumbUrl) ? (
+              {poster ? (
                 <img
-                  src={video.thumbUrl}
+                  src={poster}
                   alt={video.title}
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               ) : (
                 <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.08)' }} />
               )}
-              {/* Overlay paywall */}
               <div
                 style={{
                   position: 'absolute',
@@ -166,7 +160,6 @@ export default function VideoPage() {
         </div>
       </div>
 
-      {/* Meta */}
       <div className="section" style={{ display: 'grid', gap: 8 }}>
         <div style={{ opacity: 0.9 }}>{video.description}</div>
         <div style={{ opacity: 0.8, fontSize: 13 }}>
