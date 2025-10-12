@@ -175,7 +175,7 @@ export default function VideoPage() {
     background: 'rgba(17,17,17,0.85)',
     border: '1px solid rgba(255,255,255,0.25)',
     color: '#fff',
-    padding: '6px 10px',
+    padding: '6px 8px',
     borderRadius: 10,
     fontSize: 12,
     boxShadow: '0 3px 10px rgba(0,0,0,0.35)',
